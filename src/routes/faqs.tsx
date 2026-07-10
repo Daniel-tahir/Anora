@@ -7,7 +7,11 @@ export const Route = createFileRoute("/faqs")({
   head: () => ({
     meta: [
       { title: "FAQs — ANORA" },
-      { name: "description", content: "Answers to the most common questions about ANORA orders, shipping, returns, and jewellery care." },
+      {
+        name: "description",
+        content:
+          "Answers to the most common questions about ANORA orders, shipping, returns, and jewellery care.",
+      },
     ],
   }),
   component: FaqsPage,

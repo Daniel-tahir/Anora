@@ -1,25 +1,72 @@
 import { useState } from "react";
-import { useFinanceDashboard, useRevenueTrend, useTaxTrend, useRefundTrend, useDiscountTrend, useMonthlyComparison, useYearlyComparison } from "@/lib/admin-finance";
+import {
+  useFinanceDashboard,
+  useRevenueTrend,
+  useTaxTrend,
+  useRefundTrend,
+  useDiscountTrend,
+  useMonthlyComparison,
+  useYearlyComparison,
+} from "@/lib/admin-finance";
 import { DashboardCard } from "@/components/admin/DashboardCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, TrendingUp, Receipt, RotateCcw, Percent, ShoppingCart, FileText, Ban } from "lucide-react";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import {
+  DollarSign,
+  TrendingUp,
+  Receipt,
+  RotateCcw,
+  Percent,
+  ShoppingCart,
+  FileText,
+  Ban,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function formatCurrency(val: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(val);
 }
 
 export function FinanceDashboard() {
   const [dateRange, setDateRange] = useState("30days");
-  const startDate = dateRange === "30days"
-    ? new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]
-    : dateRange === "90days"
-    ? new Date(Date.now() - 90 * 86400000).toISOString().split("T")[0]
-    : dateRange === "1year"
-    ? new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0]
-    : undefined;
+  const startDate =
+    dateRange === "30days"
+      ? new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]
+      : dateRange === "90days"
+        ? new Date(Date.now() - 90 * 86400000).toISOString().split("T")[0]
+        : dateRange === "1year"
+          ? new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0]
+          : undefined;
   const endDate = new Date().toISOString().split("T")[0];
 
   const { data: dashboard, loading: dashLoading } = useFinanceDashboard();
@@ -30,23 +77,75 @@ export function FinanceDashboard() {
   const { data: monthlyCmp } = useMonthlyComparison();
   const { data: yearlyCmp } = useYearlyComparison();
 
-  const revenueCards = dashboard ? [
-    { label: "Gross Revenue", value: formatCurrency(dashboard.grossRevenue), icon: <DollarSign className="h-4 w-4" /> },
-    { label: "Net Revenue", value: formatCurrency(dashboard.netRevenue), icon: <TrendingUp className="h-4 w-4" /> },
-    { label: "Revenue Today", value: formatCurrency(dashboard.revenueToday), icon: <DollarSign className="h-4 w-4" /> },
-    { label: "This Week", value: formatCurrency(dashboard.revenueThisWeek), icon: <DollarSign className="h-4 w-4" /> },
-    { label: "This Month", value: formatCurrency(dashboard.revenueThisMonth), icon: <DollarSign className="h-4 w-4" /> },
-    { label: "This Year", value: formatCurrency(dashboard.revenueThisYear), icon: <DollarSign className="h-4 w-4" /> },
-  ] : [];
+  const revenueCards = dashboard
+    ? [
+        {
+          label: "Gross Revenue",
+          value: formatCurrency(dashboard.grossRevenue),
+          icon: <DollarSign className="h-4 w-4" />,
+        },
+        {
+          label: "Net Revenue",
+          value: formatCurrency(dashboard.netRevenue),
+          icon: <TrendingUp className="h-4 w-4" />,
+        },
+        {
+          label: "Revenue Today",
+          value: formatCurrency(dashboard.revenueToday),
+          icon: <DollarSign className="h-4 w-4" />,
+        },
+        {
+          label: "This Week",
+          value: formatCurrency(dashboard.revenueThisWeek),
+          icon: <DollarSign className="h-4 w-4" />,
+        },
+        {
+          label: "This Month",
+          value: formatCurrency(dashboard.revenueThisMonth),
+          icon: <DollarSign className="h-4 w-4" />,
+        },
+        {
+          label: "This Year",
+          value: formatCurrency(dashboard.revenueThisYear),
+          icon: <DollarSign className="h-4 w-4" />,
+        },
+      ]
+    : [];
 
-  const financialCards = dashboard ? [
-    { label: "Taxes Collected", value: formatCurrency(dashboard.taxesCollected), icon: <Receipt className="h-4 w-4" /> },
-    { label: "Discounts Applied", value: formatCurrency(dashboard.discountsApplied), icon: <Percent className="h-4 w-4" /> },
-    { label: "Refund Amounts", value: formatCurrency(dashboard.refundAmounts), icon: <RotateCcw className="h-4 w-4" /> },
-    { label: "Avg Order Value", value: formatCurrency(dashboard.averageOrderValue), icon: <ShoppingCart className="h-4 w-4" /> },
-    { label: "Paid Orders", value: dashboard.totalPaidOrders.toLocaleString(), icon: <FileText className="h-4 w-4" /> },
-    { label: "Outstanding", value: formatCurrency(dashboard.outstandingAmounts), icon: <Ban className="h-4 w-4" /> },
-  ] : [];
+  const financialCards = dashboard
+    ? [
+        {
+          label: "Taxes Collected",
+          value: formatCurrency(dashboard.taxesCollected),
+          icon: <Receipt className="h-4 w-4" />,
+        },
+        {
+          label: "Discounts Applied",
+          value: formatCurrency(dashboard.discountsApplied),
+          icon: <Percent className="h-4 w-4" />,
+        },
+        {
+          label: "Refund Amounts",
+          value: formatCurrency(dashboard.refundAmounts),
+          icon: <RotateCcw className="h-4 w-4" />,
+        },
+        {
+          label: "Avg Order Value",
+          value: formatCurrency(dashboard.averageOrderValue),
+          icon: <ShoppingCart className="h-4 w-4" />,
+        },
+        {
+          label: "Paid Orders",
+          value: dashboard.totalPaidOrders.toLocaleString(),
+          icon: <FileText className="h-4 w-4" />,
+        },
+        {
+          label: "Outstanding",
+          value: formatCurrency(dashboard.outstandingAmounts),
+          icon: <Ban className="h-4 w-4" />,
+        },
+      ]
+    : [];
 
   return (
     <div>
@@ -77,22 +176,32 @@ export function FinanceDashboard() {
       {dashLoading ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <DashboardCard key={i} label="—" loading />)}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <DashboardCard key={i} label="—" loading />
+            ))}
           </div>
         </div>
       ) : (
         <>
           <div className="mb-10">
-            <h2 className="text-sm font-medium mb-4 uppercase tracking-wider text-muted-foreground">Revenue</h2>
+            <h2 className="text-sm font-medium mb-4 uppercase tracking-wider text-muted-foreground">
+              Revenue
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {revenueCards.map((c) => <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />)}
+              {revenueCards.map((c) => (
+                <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />
+              ))}
             </div>
           </div>
 
           <div className="mb-10">
-            <h2 className="text-sm font-medium mb-4 uppercase tracking-wider text-muted-foreground">Financial Metrics</h2>
+            <h2 className="text-sm font-medium mb-4 uppercase tracking-wider text-muted-foreground">
+              Financial Metrics
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {financialCards.map((c) => <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />)}
+              {financialCards.map((c) => (
+                <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />
+              ))}
             </div>
           </div>
 
@@ -105,14 +214,29 @@ export function FinanceDashboard() {
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={revenueTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5, 10)} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => v.slice(5, 10)}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                    />
                     <Tooltip />
-                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--foreground))" fill="hsl(var(--foreground))" fillOpacity={0.1} />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="hsl(var(--foreground))"
+                      fill="hsl(var(--foreground))"
+                      fillOpacity={0.1}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No data</div>
+                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+                  No data
+                </div>
               )}
             </div>
 
@@ -120,9 +244,18 @@ export function FinanceDashboard() {
               <h3 className="text-sm font-medium mb-4">Tax & Discounts Trend</h3>
               {taxTrend && taxTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={taxTrend.map((t, i) => ({ ...t, discounts: discountTrend?.[i]?.discount || 0 }))}>
+                  <BarChart
+                    data={taxTrend.map((t, i) => ({
+                      ...t,
+                      discounts: discountTrend?.[i]?.discount || 0,
+                    }))}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5, 10)} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => v.slice(5, 10)}
+                    />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
                     <Legend />
@@ -131,7 +264,9 @@ export function FinanceDashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No data</div>
+                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+                  No data
+                </div>
               )}
             </div>
           </div>
@@ -143,14 +278,26 @@ export function FinanceDashboard() {
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={refundTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5, 10)} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => v.slice(5, 10)}
+                    />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="refund" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} />
+                    <Area
+                      type="monotone"
+                      dataKey="refund"
+                      stroke="#ef4444"
+                      fill="#ef4444"
+                      fillOpacity={0.1}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No refund data</div>
+                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+                  No refund data
+                </div>
               )}
             </div>
 
@@ -160,16 +307,29 @@ export function FinanceDashboard() {
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={monthlyCmp}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} tickFormatter={(v) => MONTH_NAMES[v - 1]} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => MONTH_NAMES[v - 1]}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                    />
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="revenue" fill="hsl(var(--foreground))" name="This Year" />
-                    <Bar dataKey="previousRevenue" fill="hsl(var(--muted-foreground))" name="Previous Year" />
+                    <Bar
+                      dataKey="previousRevenue"
+                      fill="hsl(var(--muted-foreground))"
+                      name="Previous Year"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No comparison data</div>
+                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+                  No comparison data
+                </div>
               )}
             </div>
           </div>

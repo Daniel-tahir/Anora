@@ -30,6 +30,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShopIndexRouteImport } from './routes/shop.index'
 import { Route as ShopCategoryRouteImport } from './routes/shop.$category'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
+import { Route as OrderSuccessRouteImport } from './routes/order.success'
 import { Route as BlogsSlugRouteImport } from './routes/blogs.$slug'
 import { Route as AdminSecurityRouteImport } from './routes/admin.security'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
@@ -152,6 +153,11 @@ const ShopCategoryRoute = ShopCategoryRouteImport.update({
 const ProductSlugRoute = ProductSlugRouteImport.update({
   id: '/product/$slug',
   path: '/product/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderSuccessRoute = OrderSuccessRouteImport.update({
+  id: '/order/success',
+  path: '/order/success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogsSlugRoute = BlogsSlugRouteImport.update({
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/security': typeof AdminSecurityRouteWithChildren
   '/blogs/$slug': typeof BlogsSlugRoute
+  '/order/success': typeof OrderSuccessRoute
   '/product/$slug': typeof ProductSlugRoute
   '/shop/$category': typeof ShopCategoryRouteWithChildren
   '/shop/': typeof ShopIndexRoute
@@ -318,6 +325,7 @@ export interface FileRoutesByTo {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/security': typeof AdminSecurityRouteWithChildren
   '/blogs/$slug': typeof BlogsSlugRoute
+  '/order/success': typeof OrderSuccessRoute
   '/product/$slug': typeof ProductSlugRoute
   '/shop': typeof ShopIndexRoute
   '/admin/finance/invoices': typeof AdminFinanceInvoicesRoute
@@ -359,6 +367,7 @@ export interface FileRoutesById {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/security': typeof AdminSecurityRouteWithChildren
   '/blogs/$slug': typeof BlogsSlugRoute
+  '/order/success': typeof OrderSuccessRoute
   '/product/$slug': typeof ProductSlugRoute
   '/shop/$category': typeof ShopCategoryRouteWithChildren
   '/shop/': typeof ShopIndexRoute
@@ -402,6 +411,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/security'
     | '/blogs/$slug'
+    | '/order/success'
     | '/product/$slug'
     | '/shop/$category'
     | '/shop/'
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/security'
     | '/blogs/$slug'
+    | '/order/success'
     | '/product/$slug'
     | '/shop'
     | '/admin/finance/invoices'
@@ -482,6 +493,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/security'
     | '/blogs/$slug'
+    | '/order/success'
     | '/product/$slug'
     | '/shop/$category'
     | '/shop/'
@@ -510,6 +522,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   WishlistRoute: typeof WishlistRoute
+  OrderSuccessRoute: typeof OrderSuccessRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
 
@@ -660,6 +673,13 @@ declare module '@tanstack/react-router' {
       path: '/product/$slug'
       fullPath: '/product/$slug'
       preLoaderRoute: typeof ProductSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order/success': {
+      id: '/order/success'
+      path: '/order/success'
+      fullPath: '/order/success'
+      preLoaderRoute: typeof OrderSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blogs/$slug': {
@@ -904,6 +924,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   WishlistRoute: WishlistRoute,
+  OrderSuccessRoute: OrderSuccessRoute,
   ProductSlugRoute: ProductSlugRoute,
 }
 export const routeTree = rootRouteImport

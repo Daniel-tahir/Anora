@@ -64,7 +64,10 @@ export function AccountDropdown({ open, onClose }: Props) {
 
         <div className="mx-4 my-1.5 border-t border-border/40" />
         <button
-          onClick={() => { signOut(); onClose(); }}
+          onClick={() => {
+            signOut();
+            onClose();
+          }}
           className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-muted-foreground hover:text-red/80 transition-colors duration-300"
         >
           <LogOut className="h-4 w-4" />

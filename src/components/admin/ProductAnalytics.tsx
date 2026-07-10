@@ -6,7 +6,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 function formatCurrency(n: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 interface ProductTableProps {
@@ -76,15 +81,9 @@ function ProductTable({ title, data, loading, error, onRetry, variant }: Product
                   <td className="py-2.5 pr-4 text-muted-foreground tabular-nums w-8">
                     {variant === "top" ? index + 1 : data.length - index}
                   </td>
-                  <td className="py-2.5 pr-4 font-medium truncate max-w-[200px]">
-                    {item.name}
-                  </td>
-                  <td className="py-2.5 pr-4 text-right tabular-nums">
-                    {item.orders}
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums">
-                    {formatCurrency(item.revenue)}
-                  </td>
+                  <td className="py-2.5 pr-4 font-medium truncate max-w-[200px]">{item.name}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{item.orders}</td>
+                  <td className="py-2.5 text-right tabular-nums">{formatCurrency(item.revenue)}</td>
                 </tr>
               ))}
             </tbody>

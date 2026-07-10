@@ -42,9 +42,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <AdminSidebar />
         <div className="pl-56">
           <AdminTopBar />
-          <main className="px-6 sm:px-8 lg:px-12 py-10 max-w-7xl mx-auto w-full">
-            {children}
-          </main>
+          <main className="px-6 sm:px-8 lg:px-12 py-10 max-w-7xl mx-auto w-full">{children}</main>
         </div>
       </div>
     </AdminGuard>

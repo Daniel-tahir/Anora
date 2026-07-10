@@ -1,8 +1,23 @@
 import { useEffect, useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   useOrderDetails,
   updateOrderStatus,
@@ -52,7 +67,11 @@ function formatCurrency(n: number): string {
 
 function formatDate(d: string): string {
   return new Date(d).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -113,12 +132,17 @@ function StatusManager({
 
   return (
     <div>
-      <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-2">Update Status</p>
+      <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-2">
+        Update Status
+      </p>
       <div className="flex flex-wrap gap-2">
         {transitions.map((s) => (
           <button
             key={s}
-            onClick={() => { setNextStatus(s); setConfirming(true); }}
+            onClick={() => {
+              setNextStatus(s);
+              setConfirming(true);
+            }}
             className={`px-3 py-1.5 text-[11px] tracking-[0.2em] uppercase rounded border transition-colors ${
               s === "cancelled"
                 ? "border-red/30 text-red/70 hover:border-red/60 hover:text-red"
@@ -180,17 +204,43 @@ function ReturnManager({ details, onUpdated }: { details: OrderDetails; onUpdate
       {details.return_requests.map((r) => (
         <div key={r.id} className="border border-border/60 p-3 mb-2 text-sm">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <Badge value={r.status} map={{ requested: "bg-amber-100 text-amber-800", approved: "bg-emerald-100 text-emerald-800", rejected: "bg-red-100 text-red-800", refunded: "bg-stone-100 text-stone-800" }} />
+            <Badge
+              value={r.status}
+              map={{
+                requested: "bg-amber-100 text-amber-800",
+                approved: "bg-emerald-100 text-emerald-800",
+                rejected: "bg-red-100 text-red-800",
+                refunded: "bg-stone-100 text-stone-800",
+              }}
+            />
             <span className="text-xs text-muted-foreground">{formatDate(r.requested_at)}</span>
           </div>
           <p className="text-muted-foreground text-xs mt-1">Reason: {r.reason}</p>
-          {r.admin_notes && <p className="text-muted-foreground text-xs mt-1">Notes: {r.admin_notes}</p>}
+          {r.admin_notes && (
+            <p className="text-muted-foreground text-xs mt-1">Notes: {r.admin_notes}</p>
+          )}
           {r.status === "requested" && (
             <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" onClick={() => { setProcessingId(r.id); setAction("approve"); handleProcess(r.id); }}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setProcessingId(r.id);
+                  setAction("approve");
+                  handleProcess(r.id);
+                }}
+              >
                 <Check className="h-3 w-3 mr-1" /> Approve
               </Button>
-              <Button size="sm" variant="outline" onClick={() => { setProcessingId(r.id); setAction("reject"); handleProcess(r.id); }}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setProcessingId(r.id);
+                  setAction("reject");
+                  handleProcess(r.id);
+                }}
+              >
                 <X className="h-3 w-3 mr-1" /> Reject
               </Button>
             </div>
@@ -229,20 +279,47 @@ function RefundManager({ details, onUpdated }: { details: OrderDetails; onUpdate
       {details.refunds.map((r) => (
         <div key={r.id} className="border border-border/60 p-3 mb-2 text-sm">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <Badge value={r.status} map={{ pending: "bg-amber-100 text-amber-800", approved: "bg-emerald-100 text-emerald-800", rejected: "bg-red-100 text-red-800", completed: "bg-stone-100 text-stone-800" }} />
+            <Badge
+              value={r.status}
+              map={{
+                pending: "bg-amber-100 text-amber-800",
+                approved: "bg-emerald-100 text-emerald-800",
+                rejected: "bg-red-100 text-red-800",
+                completed: "bg-stone-100 text-stone-800",
+              }}
+            />
             <span className="font-medium">{formatCurrency(r.amount)}</span>
           </div>
           {r.reason && <p className="text-muted-foreground text-xs mt-1">Reason: {r.reason}</p>}
-          {r.processed_at && <p className="text-muted-foreground text-xs mt-1">Processed: {formatDate(r.processed_at)}</p>}
+          {r.processed_at && (
+            <p className="text-muted-foreground text-xs mt-1">
+              Processed: {formatDate(r.processed_at)}
+            </p>
+          )}
           {r.status === "pending" && (
             <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" disabled={processing} onClick={() => handleProcess(r.id, "approved")}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={processing}
+                onClick={() => handleProcess(r.id, "approved")}
+              >
                 <Check className="h-3 w-3 mr-1" /> Approve
               </Button>
-              <Button size="sm" variant="outline" disabled={processing} onClick={() => handleProcess(r.id, "rejected")}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={processing}
+                onClick={() => handleProcess(r.id, "rejected")}
+              >
                 <X className="h-3 w-3 mr-1" /> Reject
               </Button>
-              <Button size="sm" variant="outline" disabled={processing} onClick={() => handleProcess(r.id, "completed")}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={processing}
+                onClick={() => handleProcess(r.id, "completed")}
+              >
                 <Check className="h-3 w-3 mr-1" /> Complete Refund
               </Button>
             </div>
@@ -253,13 +330,21 @@ function RefundManager({ details, onUpdated }: { details: OrderDetails; onUpdate
   );
 }
 
-function OrderDetailsContent({ details, onUpdated }: { details: OrderDetails; onUpdated: () => void }) {
+function OrderDetailsContent({
+  details,
+  onUpdated,
+}: {
+  details: OrderDetails;
+  onUpdated: () => void;
+}) {
   return (
     <div className="space-y-8 pb-8">
       <StatusManager currentStatus={details.status} orderId={details.id} onUpdated={onUpdated} />
 
       <div>
-        <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">Order Information</p>
+        <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+          Order Information
+        </p>
         <div className="border border-border/60 p-4 space-y-1 text-sm">
           <DetailRow label="Order ID" value={details.id} />
           <DetailRow label="Order Number" value={details.order_number ?? "—"} />
@@ -279,9 +364,17 @@ function OrderDetailsContent({ details, onUpdated }: { details: OrderDetails; on
       </div>
 
       <div>
-        <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">Customer</p>
+        <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+          Customer
+        </p>
         <div className="border border-border/60 p-4 space-y-1 text-sm">
-          <DetailRow label="Name" value={[details.customer.first_name, details.customer.last_name].filter(Boolean).join(" ") || "—"} />
+          <DetailRow
+            label="Name"
+            value={
+              [details.customer.first_name, details.customer.last_name].filter(Boolean).join(" ") ||
+              "—"
+            }
+          />
           <DetailRow label="Email" value={details.customer.email} />
           <DetailRow label="Phone" value={details.customer.phone ?? "—"} />
         </div>
@@ -289,12 +382,26 @@ function OrderDetailsContent({ details, onUpdated }: { details: OrderDetails; on
 
       {details.shipping_address && (
         <div>
-          <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">Shipping</p>
+          <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+            Shipping
+          </p>
           <div className="border border-border/60 p-4 space-y-1 text-sm">
-            <DetailRow label="Address" value={[details.shipping_address.line1, details.shipping_address.line2].filter(Boolean).join(", ") || "—"} />
+            <DetailRow
+              label="Address"
+              value={
+                [details.shipping_address.line1, details.shipping_address.line2]
+                  .filter(Boolean)
+                  .join(", ") || "—"
+              }
+            />
             <DetailRow label="City" value={details.shipping_address.city ?? "—"} />
             <DetailRow label="State" value={details.shipping_address.state ?? "—"} />
-            <DetailRow label="Postal Code" value={details.shipping_address.postalCode ?? details.shipping_address.postal_code ?? "—"} />
+            <DetailRow
+              label="Postal Code"
+              value={
+                details.shipping_address.postalCode ?? details.shipping_address.postal_code ?? "—"
+              }
+            />
             <DetailRow label="Country" value={details.shipping_address.country ?? "—"} />
           </div>
         </div>
@@ -302,16 +409,28 @@ function OrderDetailsContent({ details, onUpdated }: { details: OrderDetails; on
 
       {details.items.length > 0 && (
         <div>
-          <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">Items ({details.items.length})</p>
+          <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+            Items ({details.items.length})
+          </p>
           <div className="border border-border/60 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/40">
-                  <th className="text-left p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">Product</th>
-                  <th className="text-left p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">SKU</th>
-                  <th className="text-right p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">Qty</th>
-                  <th className="text-right p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">Price</th>
-                  <th className="text-right p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">Total</th>
+                  <th className="text-left p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">
+                    Product
+                  </th>
+                  <th className="text-left p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">
+                    SKU
+                  </th>
+                  <th className="text-right p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">
+                    Qty
+                  </th>
+                  <th className="text-right p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">
+                    Price
+                  </th>
+                  <th className="text-right p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -321,7 +440,9 @@ function OrderDetailsContent({ details, onUpdated }: { details: OrderDetails; on
                     <td className="p-3 text-muted-foreground text-xs">{item.sku ?? "—"}</td>
                     <td className="p-3 text-right tabular-nums">{item.quantity}</td>
                     <td className="p-3 text-right tabular-nums">{formatCurrency(item.price)}</td>
-                    <td className="p-3 text-right tabular-nums font-medium">{formatCurrency(item.total)}</td>
+                    <td className="p-3 text-right tabular-nums font-medium">
+                      {formatCurrency(item.total)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -331,11 +452,16 @@ function OrderDetailsContent({ details, onUpdated }: { details: OrderDetails; on
       )}
 
       <div>
-        <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">Financial Summary</p>
+        <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+          Financial Summary
+        </p>
         <div className="border border-border/60 p-4 space-y-1 text-sm">
           <DetailRow label="Subtotal" value={formatCurrency(details.subtotal)} />
           <DetailRow label="Shipping" value={formatCurrency(details.shipping_cost)} />
-          <DetailRow label="Discount" value={details.discount > 0 ? `-${formatCurrency(details.discount)}` : "—"} />
+          <DetailRow
+            label="Discount"
+            value={details.discount > 0 ? `-${formatCurrency(details.discount)}` : "—"}
+          />
           {details.coupon_code && <DetailRow label="Coupon" value={details.coupon_code} />}
           <div className="border-t border-border/40 pt-2 mt-2 flex justify-between text-sm">
             <span className="font-medium">Grand Total</span>
@@ -358,7 +484,12 @@ export function OrderDetailsDrawer({ orderId, open, onClose, onUpdated }: Props)
   }, [open, orderId, refetch]);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <SheetContent className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto">
         <SheetHeader className="mb-6">
           <SheetTitle>
@@ -369,9 +500,7 @@ export function OrderDetailsDrawer({ orderId, open, onClose, onUpdated }: Props)
             )}
           </SheetTitle>
           <SheetDescription>
-            {details && (
-              <Badge value={details.status} map={STATUS_BADGES} />
-            )}
+            {details && <Badge value={details.status} map={STATUS_BADGES} />}
           </SheetDescription>
         </SheetHeader>
 

@@ -17,7 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { adjustStock, addStock, removeStock, type InventoryProductRow } from "@/lib/admin-inventory";
+import {
+  adjustStock,
+  addStock,
+  removeStock,
+  type InventoryProductRow,
+} from "@/lib/admin-inventory";
 
 interface Props {
   product: InventoryProductRow;
@@ -90,7 +95,11 @@ export function AdjustStockDialog({ product, open, onOpenChange, onSuccess }: Pr
           </div>
           <div className="space-y-2">
             <Label htmlFor="adj-qty">
-              {mode === "set" ? "New stock value" : mode === "add" ? "Quantity to add" : "Quantity to remove"}
+              {mode === "set"
+                ? "New stock value"
+                : mode === "add"
+                  ? "Quantity to add"
+                  : "Quantity to remove"}
             </Label>
             <Input
               id="adj-qty"

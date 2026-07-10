@@ -47,7 +47,8 @@ function ResetPasswordPage() {
     });
 
     supabase.auth.signOut();
-    window.location.href = "/login?confirmed=Password reset successful. Sign in with your new password.";
+    window.location.href =
+      "/login?confirmed=Password reset successful. Sign in with your new password.";
   };
 
   if (authLoading) {
@@ -88,11 +89,15 @@ function ResetPasswordPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">{error}</p>
+          <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">
+            {error}
+          </p>
         )}
 
         <label className="block">
-          <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">New password</span>
+          <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+            New password
+          </span>
           <div className="relative">
             <input
               type={showPw ? "text" : "password"}
@@ -115,7 +120,9 @@ function ResetPasswordPage() {
         </label>
 
         <label className="block">
-          <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">Confirm new password</span>
+          <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+            Confirm new password
+          </span>
           <input
             type="password"
             required

@@ -4,7 +4,10 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms & Conditions — ANORA" },
-      { name: "description", content: "Terms governing the use of the ANORA website and services." },
+      {
+        name: "description",
+        content: "Terms governing the use of the ANORA website and services.",
+      },
     ],
   }),
   component: Terms,
@@ -19,24 +22,23 @@ function Terms() {
       </div>
       <div className="space-y-10 text-[15px] leading-[1.85] text-foreground/90">
         <p>
-          These terms govern your use of the ANORA website and services. By
-          accessing the site you agree to these terms in full.
+          These terms govern your use of the ANORA website and services. By accessing the site you
+          agree to these terms in full.
         </p>
         <Section title="Use of the Site">
-          The site and its contents are owned by ANORA and protected by
-          copyright. Personal, non-commercial use is permitted.
+          The site and its contents are owned by ANORA and protected by copyright. Personal,
+          non-commercial use is permitted.
         </Section>
         <Section title="Orders">
-          All orders are subject to availability and confirmation. We reserve
-          the right to refuse or cancel any order.
+          All orders are subject to availability and confirmation. We reserve the right to refuse or
+          cancel any order.
         </Section>
         <Section title="Pricing">
-          Prices are displayed in USD and may be subject to local taxes and
-          duties at checkout.
+          Prices are displayed in USD and may be subject to local taxes and duties at checkout.
         </Section>
         <Section title="Liability">
-          To the fullest extent permitted by law, ANORA shall not be liable for
-          any indirect or consequential loss arising from use of the site.
+          To the fullest extent permitted by law, ANORA shall not be liable for any indirect or
+          consequential loss arising from use of the site.
         </Section>
       </div>
     </div>

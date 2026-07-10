@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth, ProtectedRoute } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Camera, Heart, LogOut, Package, LayoutDashboard } from "lucide-react";
+import { Camera, Heart, LogOut, Package, LayoutDashboard, FileDown } from "lucide-react";
 
 export const Route = createFileRoute("/account")({
   head: () => ({ meta: [{ title: "My Account — ANORA" }] }),
   component: AccountPage,
 });
 
-type Tab = "profile" | "addresses" | "orders";
+type Tab = "profile" | "addresses" | "orders" | "order-detail";
 
 interface Profile {
   id: string;
@@ -47,6 +47,8 @@ function AccountInner() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
+  const [orderLoading, setOrderLoading] = useState(false);
 
   const [editFirst, setEditFirst] = useState("");
   const [editLast, setEditLast] = useState("");
@@ -56,19 +58,24 @@ function AccountInner() {
   useEffect(() => {
     if (!user) return;
 
-    supabase.from("profiles").select("*").eq("id", user.id).single().then(({ data, error }) => {
-      if (!error && data) {
-        setProfile(data);
-        setEditFirst(data.first_name ?? "");
-        setEditLast(data.last_name ?? "");
-        setEditPhone(data.phone ?? "");
-        setEditAddress(
-          data.shipping_address
-            ? `${data.shipping_address.line1 ?? ""}, ${data.shipping_address.city ?? ""}, ${data.shipping_address.postal_code ?? ""}`
-            : "",
-        );
-      }
-    });
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single()
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setProfile(data);
+          setEditFirst(data.first_name ?? "");
+          setEditLast(data.last_name ?? "");
+          setEditPhone(data.phone ?? "");
+          setEditAddress(
+            data.shipping_address
+              ? `${data.shipping_address.line1 ?? ""}, ${data.shipping_address.city ?? ""}, ${data.shipping_address.postal_code ?? ""}`
+              : "",
+          );
+        }
+      });
 
     Promise.resolve(
       supabase
@@ -92,9 +99,7 @@ function AccountInner() {
       first_name: editFirst,
       last_name: editLast,
       phone: editPhone,
-      shipping_address: editAddress
-        ? { line1: editAddress, city: "", postal_code: "" }
-        : null,
+      shipping_address: editAddress ? { line1: editAddress, city: "", postal_code: "" } : null,
     });
 
     setSaving(false);
@@ -112,7 +117,41 @@ function AccountInner() {
     toast.success("Signed out");
   };
 
-  const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Customer";
+  const handleViewOrder = async (orderId: string) => {
+    setOrderLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          `
+          id, order_number, status, subtotal, total, payment_status, payment_method,
+          shipping_address, billing_address, created_at, updated_at,
+          order_items (
+            id, product_id, name, price, quantity, image_url, attributes
+          ),
+          invoices (
+            id, invoice_number, status, total_amount, issued_at
+          ),
+          order_timeline (
+            id, event_type, description, created_at
+          )
+        `,
+        )
+        .eq("id", orderId)
+        .single();
+
+      if (error) throw error;
+      setSelectedOrder(data);
+      setTab("order-detail");
+    } catch (err) {
+      toast.error("Could not load order details");
+    } finally {
+      setOrderLoading(false);
+    }
+  };
+
+  const displayName =
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Customer";
   const avatarLetter = (profile?.first_name?.[0] ?? user?.email?.[0] ?? "A").toUpperCase();
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -154,7 +193,10 @@ function AccountInner() {
             {tabs.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  setTab(t.id);
+                  setSelectedOrder(null);
+                }}
                 className={`flex items-center gap-3 w-full text-left text-sm py-2.5 transition-colors duration-300 ${
                   tab === t.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -194,6 +236,11 @@ function AccountInner() {
           {tab === "orders" && (
             <div>
               <h2 className="font-serif text-2xl mb-6">Order History</h2>
+              {orderLoading && (
+                <div className="mb-4 text-sm text-muted-foreground animate-pulse">
+                  Loading order details...
+                </div>
+              )}
               {loading ? (
                 <div className="space-y-4">
                   {[1, 2].map((i) => (
@@ -214,7 +261,11 @@ function AccountInner() {
               ) : (
                 <div className="border border-border/60 divide-y divide-border/60">
                   {orders.map((o) => (
-                    <div key={o.id} className="p-5 grid grid-cols-[1fr_auto_auto] gap-4 text-sm items-center">
+                    <button
+                      key={o.id}
+                      onClick={() => handleViewOrder(o.id)}
+                      className="w-full text-left p-5 grid grid-cols-[1fr_auto_auto] gap-4 text-sm items-center hover:bg-neutral/50 transition-colors"
+                    >
                       <div>
                         <p className="font-serif">{o.order_number ?? o.id.slice(0, 8)}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -237,11 +288,21 @@ function AccountInner() {
                       >
                         {o.status}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
+          )}
+
+          {tab === "order-detail" && selectedOrder && (
+            <OrderDetailView
+              order={selectedOrder}
+              onBack={() => {
+                setTab("orders");
+                setSelectedOrder(null);
+              }}
+            />
           )}
 
           {tab === "addresses" && (
@@ -252,10 +313,23 @@ function AccountInner() {
                   <p className="eyebrow mb-2 text-gold">Default</p>
                   <p className="font-serif text-lg">{displayName}</p>
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                    {profile.shipping_address.line1 && <>{profile.shipping_address.line1}<br /></>}
-                    {profile.shipping_address.line2 && <>{profile.shipping_address.line2}<br /></>}
+                    {profile.shipping_address.line1 && (
+                      <>
+                        {profile.shipping_address.line1}
+                        <br />
+                      </>
+                    )}
+                    {profile.shipping_address.line2 && (
+                      <>
+                        {profile.shipping_address.line2}
+                        <br />
+                      </>
+                    )}
                     {profile.shipping_address.city && profile.shipping_address.postal_code && (
-                      <>{profile.shipping_address.city}, {profile.shipping_address.postal_code}<br /></>
+                      <>
+                        {profile.shipping_address.city}, {profile.shipping_address.postal_code}
+                        <br />
+                      </>
                     )}
                     {profile.shipping_address.country ?? "United States"}
                   </p>
@@ -337,10 +411,196 @@ function AccountInner() {
   );
 }
 
+async function downloadInvoicePdf(invoiceId: string) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const apiUrl = `${origin}/api/invoice/${invoiceId}/pdf?token=${encodeURIComponent(token)}`;
+  window.open(apiUrl, "_blank");
+}
+
+function OrderDetailView({
+  order,
+  onBack,
+}: {
+  order: Record<string, unknown>;
+  onBack: () => void;
+}) {
+  const items = (order.order_items as Array<Record<string, unknown>>) ?? [];
+  const invoice = (order.invoices as Array<Record<string, unknown>>)?.[0] ?? null;
+  const timeline = (order.order_timeline as Array<Record<string, unknown>>) ?? [];
+  const shippingAddr = order.shipping_address as Record<string, string> | null;
+  const billingAddr = order.billing_address as Record<string, string> | null;
+
+  return (
+    <div>
+      <button
+        onClick={onBack}
+        className="text-[11px] tracking-[0.28em] uppercase text-muted-foreground hover:text-foreground transition-colors mb-6"
+      >
+        &larr; Back to Orders
+      </button>
+
+      <div className="border border-border/60 divide-y divide-border/60">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-serif text-2xl">Order {String(order.order_number ?? "")}</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {order.created_at
+                  ? new Date(String(order.created_at)).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : ""}
+              </p>
+            </div>
+            <span
+              className={`text-[11px] tracking-[0.28em] uppercase px-3 py-1 border ${
+                order.status === "confirmed"
+                  ? "text-emerald-600 border-emerald-600/30"
+                  : order.status === "delivered"
+                    ? "text-emerald-600 border-emerald-600/30"
+                    : order.status === "shipped"
+                      ? "text-gold border-gold/30"
+                      : "text-muted-foreground border-border"
+              }`}
+            >
+              {String(order.status ?? "pending")}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Payment: {String(order.payment_status ?? "")}
+            {order.payment_method ? ` via ${String(order.payment_method)}` : ""}
+          </p>
+        </div>
+
+        <div className="p-6 space-y-3">
+          <h3 className="eyebrow">Items</h3>
+          {items.map((item: Record<string, unknown>) => (
+            <div key={item.id as string} className="flex justify-between text-sm">
+              <div className="flex items-center gap-3">
+                {item.image_url && (
+                  <img
+                    src={item.image_url as string}
+                    alt={item.name as string}
+                    className="w-10 h-12 object-cover"
+                  />
+                )}
+                <div>
+                  <p className="font-serif">{String(item.name ?? "")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Qty {String(item.quantity ?? "")}
+                    {item.attributes && typeof item.attributes === "object"
+                      ? ` · Size ${String((item.attributes as Record<string, string>).size ?? "")}`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+              <span>${(Number(item.price ?? 0) * Number(item.quantity ?? 0)).toFixed(2)}</span>
+            </div>
+          ))}
+          <div className="h-px bg-border my-3" />
+          <div className="flex justify-between font-serif text-lg">
+            <span>Total</span>
+            <span>${Number(order.total ?? 0).toFixed(2)}</span>
+          </div>
+        </div>
+
+        {shippingAddr && (
+          <div className="p-6">
+            <h3 className="eyebrow mb-3">Shipping Address</h3>
+            <div className="text-sm text-muted-foreground leading-relaxed">
+              {Object.entries(shippingAddr)
+                .filter(([_, v]) => v)
+                .map(([k, v]) => (
+                  <span key={k}>
+                    {v}
+                    <br />
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {billingAddr && (
+          <div className="p-6">
+            <h3 className="eyebrow mb-3">Billing Address</h3>
+            <div className="text-sm text-muted-foreground leading-relaxed">
+              {Object.entries(billingAddr)
+                .filter(([_, v]) => v)
+                .map(([k, v]) => (
+                  <span key={k}>
+                    {v}
+                    <br />
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {invoice && (
+          <div className="p-6">
+            <h3 className="eyebrow mb-3">Invoice</h3>
+            <div className="text-sm space-y-1">
+              <p className="text-muted-foreground">{String(invoice.invoice_number ?? "")}</p>
+              <p className="text-muted-foreground">Status: {String(invoice.status ?? "")}</p>
+              <p className="text-muted-foreground">
+                Amount: ${Number(invoice.total_amount ?? 0).toFixed(2)}
+              </p>
+              <button
+                type="button"
+                onClick={() => downloadInvoicePdf(String(invoice.id ?? ""))}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs tracking-[0.2em] uppercase text-gold hover:text-gold/70 transition-colors"
+              >
+                <FileDown className="h-3 w-3" />
+                Download PDF
+              </button>
+            </div>
+          </div>
+        )}
+
+        {timeline.length > 0 && (
+          <div className="p-6">
+            <h3 className="eyebrow mb-3">Timeline</h3>
+            <div className="space-y-3">
+              {timeline
+                .sort(
+                  (a, b) =>
+                    new Date(String(b.created_at ?? "")).getTime() -
+                    new Date(String(a.created_at ?? "")).getTime(),
+                )
+                .map((entry: Record<string, unknown>) => (
+                  <div key={entry.id as string} className="flex gap-3 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-gold mt-1.5 shrink-0" />
+                    <div>
+                      <p>{String(entry.description ?? "")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.created_at
+                          ? new Date(String(entry.created_at)).toLocaleString()
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">{label}</span>
+      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+        {label}
+      </span>
       {children}
     </label>
   );

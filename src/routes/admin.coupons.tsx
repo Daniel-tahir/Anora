@@ -21,7 +21,7 @@ function CouponsPage() {
           </p>
         </div>
         <CouponsTable />
-      
-    </div></AdminLayout>
+      </div>
+    </AdminLayout>
   );
 }

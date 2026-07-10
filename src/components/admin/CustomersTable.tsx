@@ -44,7 +44,11 @@ export function CustomersTable() {
   const pageSize = 20;
 
   const { result, loading, error, refetch } = useCustomersManagement(
-    page, pageSize, search, sortBy, sortDir,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
     segment === "all" ? "" : segment,
     activity === "all" ? "" : activity,
   );
@@ -56,7 +60,10 @@ export function CustomersTable() {
       let timer: ReturnType<typeof setTimeout>;
       return (val: string) => {
         clearTimeout(timer);
-        timer = setTimeout(() => { setSearch(val); setPage(1); }, 300);
+        timer = setTimeout(() => {
+          setSearch(val);
+          setPage(1);
+        }, 300);
       };
     })(),
     [],
@@ -122,10 +129,19 @@ export function CustomersTable() {
         <Input
           placeholder="Search by name or email..."
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
           className="max-w-xs"
         />
-        <Select value={segment} onValueChange={(val) => { setSegment(val); setPage(1); }}>
+        <Select
+          value={segment}
+          onValueChange={(val) => {
+            setSegment(val);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All segments" />
           </SelectTrigger>
@@ -136,7 +152,13 @@ export function CustomersTable() {
             <SelectItem value="vip">VIP</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={activity} onValueChange={(val) => { setActivity(val); setPage(1); }}>
+        <Select
+          value={activity}
+          onValueChange={(val) => {
+            setActivity(val);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All activity" />
           </SelectTrigger>
@@ -152,7 +174,9 @@ export function CustomersTable() {
       {error && (
         <div className="border border-red/20 bg-red/5 p-4 text-center">
           <p className="text-sm text-red/80">{error}</p>
-          <Button variant="outline" size="sm" onClick={refetch} className="mt-2">Retry</Button>
+          <Button variant="outline" size="sm" onClick={refetch} className="mt-2">
+            Retry
+          </Button>
         </div>
       )}
 
@@ -164,17 +188,29 @@ export function CustomersTable() {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
                 Customer{sortIndicator("name")}
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("orders_count")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("orders_count")}
+              >
                 Orders{sortIndicator("orders_count")}
               </TableHead>
-              <TableHead className="cursor-pointer select-none text-right" onClick={() => handleSort("total_spent")}>
+              <TableHead
+                className="cursor-pointer select-none text-right"
+                onClick={() => handleSort("total_spent")}
+              >
                 Total Spent{sortIndicator("total_spent")}
               </TableHead>
               <TableHead>Segment</TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("created_at")}
+              >
                 Registered{sortIndicator("created_at")}
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("last_activity")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("last_activity")}
+              >
                 Last Activity{sortIndicator("last_activity")}
               </TableHead>
             </TableRow>
@@ -183,12 +219,24 @@ export function CustomersTable() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-8" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16 ml-auto" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
                 </TableRow>
               ))
             ) : (result?.customers?.length ?? 0) === 0 ? (
@@ -219,7 +267,10 @@ export function CustomersTable() {
                     ${Number(customer.total_spent).toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={segmentBadge[customer.segment] ?? "secondary"} className="capitalize">
+                    <Badge
+                      variant={segmentBadge[customer.segment] ?? "secondary"}
+                      className="capitalize"
+                    >
                       {customer.segment}
                     </Badge>
                   </TableCell>
@@ -242,11 +293,23 @@ export function CustomersTable() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{result?.total ?? 0} total</p>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+          >
             Previous
           </Button>
-          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+          >
             Next
           </Button>
         </div>
@@ -255,7 +318,10 @@ export function CustomersTable() {
       <CustomerProfileDrawer
         userId={selectedUserId}
         open={drawerOpen}
-        onClose={() => { setDrawerOpen(false); setSelectedUserId(null); }}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedUserId(null);
+        }}
       />
     </div>
   );

@@ -1,10 +1,23 @@
 import { useRevenueAnalytics } from "@/lib/admin-analytics";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 function formatCurrency(n: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 export function RevenueChart() {
@@ -118,9 +131,7 @@ export function RevenueChart() {
                     return (
                       <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
                         <p className="font-medium mb-1">{label}</p>
-                        <p className="tabular-nums">
-                          {formatCurrency(Number(payload[0].value))}
-                        </p>
+                        <p className="tabular-nums">{formatCurrency(Number(payload[0].value))}</p>
                       </div>
                     );
                   }}

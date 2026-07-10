@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ProductCard } from "@/components/site/ProductCard";
 import { useState } from "react";
-import { useActiveCategories, useCategoryProducts, type CategoryNode, toProductProps } from "@/lib/categories";
+import {
+  useActiveCategories,
+  useCategoryProducts,
+  type CategoryNode,
+  toProductProps,
+} from "@/lib/categories";
 
 export const Route = createFileRoute("/shop/$category/")({
   head: ({ params }) => {
@@ -28,12 +33,16 @@ function ShopCategory() {
   const children: CategoryNode[] = parent?.children ?? [];
 
   const subs = ["All", ...children.map((c) => c.name)];
-  const filtered = sub === "All" ? dbProducts : dbProducts.filter((p) => p.category_slug === children.find((c) => c.name === sub)?.slug);
+  const filtered =
+    sub === "All"
+      ? dbProducts
+      : dbProducts.filter((p) => p.category_slug === children.find((c) => c.name === sub)?.slug);
 
   const heading = category === "clothing" ? "Clothing" : "Jewellery";
-  const tagline = category === "clothing"
-    ? "Silks, cashmere and ceremonial dress — slow tailored in our atelier."
-    : "Recycled 18k gold and considered stones, finished entirely by hand.";
+  const tagline =
+    category === "clothing"
+      ? "Silks, cashmere and ceremonial dress — slow tailored in our atelier."
+      : "Recycled 18k gold and considered stones, finished entirely by hand.";
 
   return (
     <div className="pt-16 pb-24">

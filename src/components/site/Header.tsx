@@ -12,9 +12,14 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const cart = useCart();
   const wish = useWishlist();
   const { user } = useAuth();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -57,17 +62,25 @@ export function Header() {
             >
               <Search className="h-[18px] w-[18px]" />
             </button>
-            <Link to="/wishlist" aria-label="Wishlist" className="relative hover:text-gold transition-all duration-300 hover:scale-105">
+            <Link
+              to="/wishlist"
+              aria-label="Wishlist"
+              className="relative hover:text-gold transition-all duration-300 hover:scale-105"
+            >
               <Heart className="h-[18px] w-[18px]" />
-              {wish.count > 0 && (
+              {mounted && wish.count > 0 && (
                 <span className="absolute -top-1.5 -right-2 text-[10px] bg-gold text-ink rounded-full h-4 min-w-4 px-1 flex items-center justify-center font-medium">
                   {wish.count}
                 </span>
               )}
             </Link>
-            <Link to="/cart" aria-label="Cart" className="relative hover:text-gold transition-all duration-300 hover:scale-105">
+            <Link
+              to="/cart"
+              aria-label="Cart"
+              className="relative hover:text-gold transition-all duration-300 hover:scale-105"
+            >
               <ShoppingBag className="h-[18px] w-[18px]" />
-              {cart.count > 0 && (
+              {mounted && cart.count > 0 && (
                 <span className="absolute -top-1.5 -right-2 text-[10px] bg-gold text-ink rounded-full h-4 min-w-4 px-1 flex items-center justify-center font-medium">
                   {cart.count}
                 </span>
@@ -81,7 +94,9 @@ export function Header() {
                     aria-label="Account"
                     className="grid place-items-center h-[30px] w-[30px] hover:text-gold transition-all duration-300 hover:scale-105"
                   >
-                    <span className="text-[11px] font-serif font-bold tracking-wide">{(user.email ?? "A")[0].toUpperCase()}</span>
+                    <span className="text-[11px] font-serif font-bold tracking-wide">
+                      {(user.email ?? "A")[0].toUpperCase()}
+                    </span>
                   </button>
                   <AccountDropdown open={accountOpen} onClose={() => setAccountOpen(false)} />
                 </>

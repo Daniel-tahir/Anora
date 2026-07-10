@@ -47,7 +47,11 @@ export function CategoriesTable() {
   const pageSize = 20;
 
   const { result, loading, error, refetch } = useCategoriesManagement(
-    page, pageSize, search, sortBy, sortDir,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
   );
 
   function handleSort(column: string) {
@@ -71,13 +75,21 @@ export function CategoriesTable() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Categories</h2>
-        <CreateCategoryDialog onSuccess={() => { setPage(1); refetch(); }} />
+        <CreateCategoryDialog
+          onSuccess={() => {
+            setPage(1);
+            refetch();
+          }}
+        />
       </div>
 
       <Input
         placeholder="Search categories..."
         value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
         className="max-w-sm"
       />
 
@@ -92,10 +104,16 @@ export function CategoriesTable() {
               </TableHead>
               <TableHead>Parent</TableHead>
               <TableHead>Slug</TableHead>
-              <TableHead className="cursor-pointer select-none text-right" onClick={() => handleSort("product_count")}>
+              <TableHead
+                className="cursor-pointer select-none text-right"
+                onClick={() => handleSort("product_count")}
+              >
                 Products{sortIndicator("product_count")}
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("created_at")}
+              >
                 Created{sortIndicator("created_at")}
               </TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -118,9 +136,15 @@ export function CategoriesTable() {
               result?.categories.map((cat) => (
                 <TableRow key={cat.id}>
                   <TableCell className="font-medium">
-                    {cat.parent_id ? <span className="ml-4">{cat.name}</span> : <strong>{cat.name}</strong>}
+                    {cat.parent_id ? (
+                      <span className="ml-4">{cat.name}</span>
+                    ) : (
+                      <strong>{cat.name}</strong>
+                    )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{cat.parent_name ?? "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {cat.parent_name ?? "—"}
+                  </TableCell>
                   <TableCell className="font-mono text-sm">{cat.slug}</TableCell>
                   <TableCell className="text-right">{cat.product_count}</TableCell>
                   <TableCell>{new Date(cat.created_at).toLocaleDateString()}</TableCell>
@@ -138,9 +162,7 @@ export function CategoriesTable() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {result?.total ?? 0} total
-        </p>
+        <p className="text-sm text-muted-foreground">{result?.total ?? 0} total</p>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -177,7 +199,10 @@ function CreateCategoryDialog({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open) getParentCategories().then(setParents).catch(() => {});
+    if (open)
+      getParentCategories()
+        .then(setParents)
+        .catch(() => {});
   }, [open]);
 
   function handleNameChange(val: string) {
@@ -188,9 +213,18 @@ function CreateCategoryDialog({ onSuccess }: { onSuccess: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (!slug.trim()) { setError("Slug is required"); return; }
-    if (!parentId) { setError("Parent category is required"); return; }
+    if (!name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (!slug.trim()) {
+      setError("Slug is required");
+      return;
+    }
+    if (!parentId) {
+      setError("Parent category is required");
+      return;
+    }
     setLoading(true);
     const result = await createCategory(name.trim(), slug.trim(), parentId);
     setLoading(false);
@@ -224,7 +258,9 @@ function CreateCategoryDialog({ onSuccess }: { onSuccess: () => void }) {
             >
               <option value="">Select parent...</option>
               {parents.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </div>
@@ -258,7 +294,13 @@ function CreateCategoryDialog({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function EditCategoryDialog({ category, onSuccess }: { category: CategoryRow; onSuccess: () => void }) {
+function EditCategoryDialog({
+  category,
+  onSuccess,
+}: {
+  category: CategoryRow;
+  onSuccess: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(category.name);
   const [slug, setSlug] = useState(category.slug);
@@ -269,7 +311,10 @@ function EditCategoryDialog({ category, onSuccess }: { category: CategoryRow; on
   const isRoot = !category.parent_id;
 
   useEffect(() => {
-    if (open) getParentCategories().then(setParents).catch(() => {});
+    if (open)
+      getParentCategories()
+        .then(setParents)
+        .catch(() => {});
   }, [open]);
 
   function handleNameChange(val: string) {
@@ -280,8 +325,14 @@ function EditCategoryDialog({ category, onSuccess }: { category: CategoryRow; on
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (!slug.trim()) { setError("Slug is required"); return; }
+    if (!name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (!slug.trim()) {
+      setError("Slug is required");
+      return;
+    }
     setLoading(true);
     const result = await updateCategory(
       category.id,
@@ -300,7 +351,17 @@ function EditCategoryDialog({ category, onSuccess }: { category: CategoryRow; on
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="ghost" size="sm" onClick={() => { setName(category.name); setSlug(category.slug); setParentId(category.parent_id ?? ""); setError(""); setOpen(true); }}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setName(category.name);
+          setSlug(category.slug);
+          setParentId(category.parent_id ?? "");
+          setError("");
+          setOpen(true);
+        }}
+      >
         Edit
       </Button>
       <DialogContent>
@@ -320,7 +381,9 @@ function EditCategoryDialog({ category, onSuccess }: { category: CategoryRow; on
               >
                 <option value="">Select parent...</option>
                 {parents.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -345,7 +408,13 @@ function EditCategoryDialog({ category, onSuccess }: { category: CategoryRow; on
   );
 }
 
-function DeleteCategoryDialog({ category, onSuccess }: { category: CategoryRow; onSuccess: () => void }) {
+function DeleteCategoryDialog({
+  category,
+  onSuccess,
+}: {
+  category: CategoryRow;
+  onSuccess: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

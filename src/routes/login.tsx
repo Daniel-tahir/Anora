@@ -90,7 +90,9 @@ function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">{error}</p>
+              <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">
+                {error}
+              </p>
             )}
 
             <Field label="Email" error={!!error}>
@@ -144,8 +146,12 @@ function LoginPage() {
             </button>
 
             <div className="flex items-center justify-between text-xs pt-2">
-              <Link to="/forgot-password" className="hover-underline text-muted-foreground">Forgot password?</Link>
-              <Link to="/register" className="hover-underline">Create account</Link>
+              <Link to="/forgot-password" className="hover-underline text-muted-foreground">
+                Forgot password?
+              </Link>
+              <Link to="/register" className="hover-underline">
+                Create account
+              </Link>
             </div>
           </form>
         </>
@@ -154,10 +160,20 @@ function LoginPage() {
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: boolean; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">{label}</span>
+      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+        {label}
+      </span>
       {children}
     </label>
   );

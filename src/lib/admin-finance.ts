@@ -54,7 +54,9 @@ export function useFinanceDashboard() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 
@@ -77,7 +79,9 @@ function useTrendQuery(rpcName: string, startDate?: string, endDate?: string) {
     }
   }, [rpcName, startDate, endDate]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading };
 }
 
@@ -115,7 +119,9 @@ export function useMonthlyComparison(year?: number) {
     }
   }, [year]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading };
 }
 
@@ -135,8 +141,8 @@ export function useYearlyComparison() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading };
 }
-
-

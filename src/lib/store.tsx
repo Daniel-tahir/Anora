@@ -10,9 +10,11 @@ import { useAuth } from "./auth-context";
 import {
   addToCart,
   addToWishlist,
+  clearCart,
   type CartSnapshot,
   getCartSnapshot,
   getWishlistSnapshot,
+  initCrossTabSync,
   isInWishlist,
   mergeGuestCartToUser,
   removeFromCart,
@@ -32,9 +34,7 @@ export interface CartItem {
   variantId?: string | null;
   size: string;
   quantity: number;
-  active: boolean;
   source: "local" | "server";
-  updatedAt: number;
 }
 
 interface CartCtx {
@@ -71,6 +71,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const wishSnapshot = useSyncExternalStore(subscribe, getWishlistSnapshot, getWishlistSnapshot);
 
   useEffect(() => {
+    initCrossTabSync();
     setCustomerUser(user?.id ?? null);
     if (!user) return;
     void mergeGuestCartToUser(user.id);
@@ -95,7 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (item) void updateCartQuantity(item.id, quantity);
       },
       clear: () => {
-        cartSnapshot.items.forEach((item) => void removeFromCart(item.id));
+        void clearCart();
       },
       count: cartSnapshot.count,
       subtotal: cartSnapshot.subtotal,

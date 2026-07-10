@@ -112,7 +112,9 @@ export function useCustomersManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, segment, activity]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -137,7 +139,9 @@ export function useCustomerDetails(userId: string | null) {
     }
   }, [userId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { details, loading, error, refetch: load };
 }
 
@@ -159,6 +163,8 @@ export function useCustomersAnalytics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { analytics, loading, error, refetch: load };
 }

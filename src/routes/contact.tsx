@@ -6,7 +6,10 @@ export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
       { title: "Contact — ANORA" },
-      { name: "description", content: "Reach the ANORA atelier — WhatsApp, email, and our flagship address." },
+      {
+        name: "description",
+        content: "Reach the ANORA atelier — WhatsApp, email, and our flagship address.",
+      },
     ],
   }),
   component: Contact,
@@ -38,7 +41,9 @@ function Contact() {
           </div>
           <Input label="Phone" type="tel" />
           <label className="block">
-            <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">Message</span>
+            <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+              Message
+            </span>
             <textarea
               required
               rows={6}
@@ -51,10 +56,29 @@ function Contact() {
         </form>
 
         <div className="space-y-8">
-          <Info icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" value="+1 (347) 325-6525" href="https://wa.me/15555555555" />
-          <Info icon={<Mail className="h-4 w-4" />} label="Email" value="care@anora.com" href="mailto:care@anora.com" />
-          <Info icon={<Phone className="h-4 w-4" />} label="Phone" value="+1 (212) 555-0199" href="tel:+12125550199" />
-          <Info icon={<MapPin className="h-4 w-4" />} label="Atelier" value="12 Atelier Lane, SoHo, New York, NY 10012" />
+          <Info
+            icon={<MessageCircle className="h-4 w-4" />}
+            label="WhatsApp"
+            value="+1 (347) 325-6525"
+            href="https://wa.me/15555555555"
+          />
+          <Info
+            icon={<Mail className="h-4 w-4" />}
+            label="Email"
+            value="care@anora.com"
+            href="mailto:care@anora.com"
+          />
+          <Info
+            icon={<Phone className="h-4 w-4" />}
+            label="Phone"
+            value="+1 (212) 555-0199"
+            href="tel:+12125550199"
+          />
+          <Info
+            icon={<MapPin className="h-4 w-4" />}
+            label="Atelier"
+            value="12 Atelier Lane, SoHo, New York, NY 10012"
+          />
 
           <div className="overflow-hidden">
             <iframe
@@ -70,10 +94,15 @@ function Contact() {
   );
 }
 
-function Input({ label, ...rest }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Input({
+  label,
+  ...rest
+}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">{label}</span>
+      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+        {label}
+      </span>
       <input
         {...rest}
         className="w-full bg-background border border-border px-4 py-3 text-sm outline-none focus:border-foreground transition-colors"
@@ -82,7 +111,17 @@ function Input({ label, ...rest }: { label: string } & React.InputHTMLAttributes
   );
 }
 
-function Info({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href?: string }) {
+function Info({
+  icon,
+  label,
+  value,
+  href,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  href?: string;
+}) {
   const inner = (
     <div className="flex items-start gap-4">
       <span className="h-9 w-9 grid place-items-center border border-border shrink-0">{icon}</span>
@@ -92,5 +131,11 @@ function Info({ icon, label, value, href }: { icon: React.ReactNode; label: stri
       </div>
     </div>
   );
-  return href ? <a href={href} className="block hover:text-gold transition-colors">{inner}</a> : inner;
+  return href ? (
+    <a href={href} className="block hover:text-gold transition-colors">
+      {inner}
+    </a>
+  ) : (
+    inner
+  );
 }

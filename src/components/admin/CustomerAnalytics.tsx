@@ -1,6 +1,15 @@
 import { useCustomerAnalytics } from "@/lib/admin-analytics";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import {
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { Users, UserPlus, Repeat } from "lucide-react";
 
 const COLORS = ["#6366f1", "#14b8a6"];
@@ -86,7 +95,11 @@ export function CustomerAnalytics() {
                 ]}
                 margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border/50"
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 11 }}

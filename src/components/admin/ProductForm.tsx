@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,12 @@ import {
   type AdminProductImage,
 } from "@/lib/admin-products";
 import { supabase } from "@/lib/supabase";
-
-const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
+import {
+  SIZE_OPTIONS,
+  buildSizeStock,
+  calculateProductStock,
+  isSizeInventoryEnabled,
+} from "@/lib/inventory-admin";
 const STATUS_OPTIONS = ["active", "draft", "archived", "out_of_stock"];
 
 interface CategoryOption {
@@ -110,7 +114,9 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
   const subCategories = allCategories.filter((c) => c.parent_id === form.category_id);
 
   useEffect(() => {
-    getAllActiveCategories().then(setAllCategories).catch(() => {});
+    getAllActiveCategories()
+      .then(setAllCategories)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -211,6 +217,20 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
     }));
   }
 
+  const computedStock = useMemo(() => calculateProductStock(form.size_stock), [form.size_stock]);
+
+  const sizeInventoryEnabled = useMemo(
+    () => isSizeInventoryEnabled(form.size_stock),
+    [form.size_stock],
+  );
+
+  function setSizeStock(size: string, value: number) {
+    setForm((prev) => ({
+      ...prev,
+      size_stock: { ...prev.size_stock, [size]: value },
+    }));
+  }
+
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !productId) return;
@@ -246,7 +266,9 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
     const reordered = newImages.map((img, i) => ({ ...img, sort_order: i }));
     setImages(reordered);
     try {
-      await reorderProductImages(reordered.map((img) => ({ id: img.id, sort_order: img.sort_order })));
+      await reorderProductImages(
+        reordered.map((img) => ({ id: img.id, sort_order: img.sort_order })),
+      );
     } catch {
       /* ignore */
     }
@@ -259,10 +281,15 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
     if (!form.sku.trim()) e.sku = "SKU is required";
     const price = parseFloat(form.price);
     if (!form.price || isNaN(price) || price <= 0) e.price = "Price must be greater than 0";
-    const stock = parseInt(form.stock, 10);
-    if (form.stock === "" || isNaN(stock) || stock < 0) e.stock = "Stock must be 0 or greater";
+    if (sizeInventoryEnabled) {
+      if (computedStock < 0) e.stock = "Stock must be 0 or greater";
+    } else {
+      const stock = parseInt(form.stock, 10);
+      if (form.stock === "" || isNaN(stock) || stock < 0) e.stock = "Stock must be 0 or greater";
+    }
     const threshold = parseInt(form.low_stock_threshold, 10);
-    if (form.low_stock_threshold === "" || isNaN(threshold) || threshold < 0) e.low_stock_threshold = "Must be 0 or greater";
+    if (form.low_stock_threshold === "" || isNaN(threshold) || threshold < 0)
+      e.low_stock_threshold = "Must be 0 or greater";
     if (!form.category_id) e.category_id = "Parent category is required";
     if (!form.subcategory_id) e.subcategory_id = "Subcategory is required";
     setErrors(e);
@@ -274,6 +301,7 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
     if (!validate()) return;
     setSaving(true);
     try {
+      const sizeStock = buildSizeStock(form.sizes, form.size_stock);
       const productData = {
         name: form.name.trim(),
         slug: form.slug.trim(),
@@ -282,17 +310,10 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
         short_description: form.short_description.trim() || undefined,
         price: parseFloat(form.price),
         compare_price: form.compare_price ? parseFloat(form.compare_price) : undefined,
-        stock: parseInt(form.stock, 10),
+        stock: sizeInventoryEnabled ? computedStock : parseInt(form.stock, 10),
         low_stock_threshold: parseInt(form.low_stock_threshold, 10),
         sizes: form.sizes,
-        size_stock: (() => {
-          const existing = form.size_stock ?? {};
-          const result: Record<string, number> = {};
-          for (const s of form.sizes) {
-            result[s] = typeof existing[s] === "number" ? existing[s] : 0;
-          }
-          return result;
-        })(),
+        size_stock: sizeStock,
         colors: form.colors,
         fabric: form.fabric.trim() || undefined,
         material: form.material.trim() || undefined,
@@ -320,32 +341,51 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
   const canUpload = isEdit;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Product" : "Create Product"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Update product details, images, sizes, colors, and inventory." : "Fill in the details to add a new product."}
+            {isEdit
+              ? "Update product details, images, sizes, colors, and inventory."
+              : "Fill in the details to add a new product."}
           </DialogDescription>
         </DialogHeader>
 
         {loadingData ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">Loading product data...</div>
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            Loading product data...
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* ─── Basic Information ─── */}
             <fieldset className="space-y-4 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Basic Information</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Basic Information
+              </legend>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
-                  <Input id="name" value={form.name} onChange={(e) => handleNameChange(e.target.value)} />
+                  <Input
+                    id="name"
+                    value={form.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                  />
                   {errors.name && <p className="text-xs text-red">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="slug">Slug</Label>
-                  <Input id="slug" value={form.slug} onChange={(e) => set("slug", e.target.value)} />
+                  <Input
+                    id="slug"
+                    value={form.slug}
+                    onChange={(e) => set("slug", e.target.value)}
+                  />
                   {errors.slug && <p className="text-xs text-red">{errors.slug}</p>}
                 </div>
               </div>
@@ -364,7 +404,11 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
                     onChange={(e) => set("status", e.target.value)}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                   >
-                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>)}
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -372,12 +416,26 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price">Price *</Label>
-                  <Input id="price" type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", e.target.value)} />
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.price}
+                    onChange={(e) => set("price", e.target.value)}
+                  />
                   {errors.price && <p className="text-xs text-red">{errors.price}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="compare_price">Compare At Price</Label>
-                  <Input id="compare_price" type="number" step="0.01" min="0" value={form.compare_price} onChange={(e) => set("compare_price", e.target.value)} />
+                  <Input
+                    id="compare_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.compare_price}
+                    onChange={(e) => set("compare_price", e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -406,7 +464,9 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
 
             {/* ─── Category Assignment ─── */}
             <fieldset className="space-y-4 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Category</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Category
+              </legend>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -421,7 +481,11 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                   >
                     <option value="">Select parent</option>
-                    {parentCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {parentCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                   {errors.category_id && <p className="text-xs text-red">{errors.category_id}</p>}
                 </div>
@@ -436,16 +500,24 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
                     disabled={!form.category_id}
                   >
                     <option value="">Select subcategory</option>
-                    {subCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {subCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
-                  {errors.subcategory_id && <p className="text-xs text-red">{errors.subcategory_id}</p>}
+                  {errors.subcategory_id && (
+                    <p className="text-xs text-red">{errors.subcategory_id}</p>
+                  )}
                 </div>
               </div>
             </fieldset>
 
             {/* ─── Sizes ─── */}
             <fieldset className="space-y-3 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Available Sizes</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Available Sizes
+              </legend>
               <div className="flex flex-wrap gap-2">
                 {SIZE_OPTIONS.map((s) => (
                   <button
@@ -466,15 +538,29 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
 
             {/* ─── Colors ─── */}
             <fieldset className="space-y-3 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Colors</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Colors
+              </legend>
 
               {form.colors.length > 0 && (
                 <div className="flex flex-wrap gap-3 mb-3">
                   {form.colors.map((c, i) => (
-                    <div key={i} className="flex items-center gap-2 border border-border/60 px-3 py-1.5">
-                      <span className="w-5 h-5 rounded-full border" style={{ backgroundColor: c.hex }} />
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 border border-border/60 px-3 py-1.5"
+                    >
+                      <span
+                        className="w-5 h-5 rounded-full border"
+                        style={{ backgroundColor: c.hex }}
+                      />
                       <span className="text-sm">{c.name}</span>
-                      <button type="button" onClick={() => removeColor(i)} className="text-xs text-muted-foreground hover:text-red ml-1">✕</button>
+                      <button
+                        type="button"
+                        onClick={() => removeColor(i)}
+                        className="text-xs text-muted-foreground hover:text-red ml-1"
+                      >
+                        ✕
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -483,7 +569,12 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
               <div className="flex items-end gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Color Name</Label>
-                  <Input value={colorName} onChange={(e) => setColorName(e.target.value)} placeholder="e.g. Black" className="h-8 text-sm" />
+                  <Input
+                    value={colorName}
+                    onChange={(e) => setColorName(e.target.value)}
+                    placeholder="e.g. Black"
+                    className="h-8 text-sm"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Hex</Label>
@@ -494,29 +585,66 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
                       onChange={(e) => setColorHex(e.target.value)}
                       className="h-8 w-8 border border-border p-0.5 cursor-pointer"
                     />
-                    <Input value={colorHex} onChange={(e) => setColorHex(e.target.value)} className="h-8 w-24 text-xs font-mono" />
+                    <Input
+                      value={colorHex}
+                      onChange={(e) => setColorHex(e.target.value)}
+                      className="h-8 w-24 text-xs font-mono"
+                    />
                   </div>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addColor}>Add</Button>
+                <Button type="button" variant="outline" size="sm" onClick={addColor}>
+                  Add
+                </Button>
               </div>
             </fieldset>
 
             {/* ─── Images ─── */}
             <fieldset className="space-y-3 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Images</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Images
+              </legend>
 
               {!canUpload ? (
-                <p className="text-sm text-muted-foreground">Save the product first to enable image upload.</p>
+                <p className="text-sm text-muted-foreground">
+                  Save the product first to enable image upload.
+                </p>
               ) : (
                 <>
                   <div className="flex flex-wrap gap-3">
                     {images.map((img, i) => (
-                      <div key={img.id} className="relative w-28 aspect-[3/4] bg-neutral border group">
-                        <img src={img.image_url} alt={img.alt_text ?? ""} className="h-full w-full object-cover" />
+                      <div
+                        key={img.id}
+                        className="relative w-28 aspect-[3/4] bg-neutral border group"
+                      >
+                        <img
+                          src={img.image_url}
+                          alt={img.alt_text ?? ""}
+                          className="h-full w-full object-cover"
+                        />
                         <div className="absolute inset-0 bg-ink/0 group-hover:bg-ink/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                          <button type="button" onClick={() => handleMoveImage(i, -1)} disabled={i === 0} className="h-6 w-6 bg-background/80 grid place-items-center text-xs disabled:opacity-30">‹</button>
-                          <button type="button" onClick={() => handleMoveImage(i, 1)} disabled={i === images.length - 1} className="h-6 w-6 bg-background/80 grid place-items-center text-xs disabled:opacity-30">›</button>
-                          <button type="button" onClick={() => handleDeleteImage(img.id)} className="h-6 w-6 bg-red/80 text-white grid place-items-center text-xs">✕</button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveImage(i, -1)}
+                            disabled={i === 0}
+                            className="h-6 w-6 bg-background/80 grid place-items-center text-xs disabled:opacity-30"
+                          >
+                            ‹
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveImage(i, 1)}
+                            disabled={i === images.length - 1}
+                            className="h-6 w-6 bg-background/80 grid place-items-center text-xs disabled:opacity-30"
+                          >
+                            ›
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteImage(img.id)}
+                            className="h-6 w-6 bg-red/80 text-white grid place-items-center text-xs"
+                          >
+                            ✕
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -530,10 +658,18 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
                       onChange={handleImageUpload}
                       className="hidden"
                     />
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading}
+                    >
                       {uploading ? "Uploading..." : "Upload Image"}
                     </Button>
-                    {uploading && <span className="text-xs text-muted-foreground">Uploading...</span>}
+                    {uploading && (
+                      <span className="text-xs text-muted-foreground">Uploading...</span>
+                    )}
                   </div>
                   {errors.images && <p className="text-xs text-red">{errors.images}</p>}
                 </>
@@ -542,45 +678,119 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
 
             {/* ─── Inventory ─── */}
             <fieldset className="space-y-4 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Inventory</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Inventory
+              </legend>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="stock">Quantity *</Label>
-                  <Input id="stock" type="number" min="0" value={form.stock} onChange={(e) => set("stock", e.target.value)} />
+                  <Label htmlFor="stock">
+                    Quantity *
+                    {sizeInventoryEnabled && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (auto-calculated from sizes)
+                      </span>
+                    )}
+                  </Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    min="0"
+                    value={sizeInventoryEnabled ? String(computedStock) : form.stock}
+                    onChange={(e) => set("stock", e.target.value)}
+                    disabled={sizeInventoryEnabled}
+                    className={sizeInventoryEnabled ? "opacity-60" : ""}
+                  />
                   {errors.stock && <p className="text-xs text-red">{errors.stock}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
-                  <Input id="low_stock_threshold" type="number" min="0" value={form.low_stock_threshold} onChange={(e) => set("low_stock_threshold", e.target.value)} />
-                  {errors.low_stock_threshold && <p className="text-xs text-red">{errors.low_stock_threshold}</p>}
+                  <Input
+                    id="low_stock_threshold"
+                    type="number"
+                    min="0"
+                    value={form.low_stock_threshold}
+                    onChange={(e) => set("low_stock_threshold", e.target.value)}
+                  />
+                  {errors.low_stock_threshold && (
+                    <p className="text-xs text-red">{errors.low_stock_threshold}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fabric">Fabric / Material</Label>
-                  <Input id="fabric" value={form.fabric} onChange={(e) => set("fabric", e.target.value)} />
+                  <Input
+                    id="fabric"
+                    value={form.fabric}
+                    onChange={(e) => set("fabric", e.target.value)}
+                  />
                 </div>
               </div>
 
+              {form.sizes.length > 0 && (
+                <div className="border-t border-border/40 pt-4">
+                  <p className="text-xs tracking-[0.2em] uppercase font-medium mb-3">
+                    Per-Size Stock
+                  </p>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    {form.sizes.map((size) => (
+                      <div key={size} className="space-y-1">
+                        <Label className="text-xs text-center block">{size}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={form.size_stock[size] ?? 0}
+                          onChange={(e) =>
+                            setSizeStock(size, Math.max(0, parseInt(e.target.value) || 0))
+                          }
+                          className="h-8 text-center text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="material">Material (for jewellery)</Label>
-                <Input id="material" value={form.material} onChange={(e) => set("material", e.target.value)} />
+                <Input
+                  id="material"
+                  value={form.material}
+                  onChange={(e) => set("material", e.target.value)}
+                />
               </div>
             </fieldset>
 
             {/* ─── Labels ─── */}
             <fieldset className="space-y-3 border border-border/60 p-4">
-              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">Labels</legend>
+              <legend className="text-xs tracking-[0.2em] uppercase px-2 font-medium">
+                Labels
+              </legend>
               <div className="flex flex-wrap gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.is_new} onChange={(e) => set("is_new", e.target.checked)} className="h-4 w-4 rounded border-border accent-foreground" />
+                  <input
+                    type="checkbox"
+                    checked={form.is_new}
+                    onChange={(e) => set("is_new", e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-foreground"
+                  />
                   <span className="text-sm">New Arrival</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.is_best_seller} onChange={(e) => set("is_best_seller", e.target.checked)} className="h-4 w-4 rounded border-border accent-foreground" />
+                  <input
+                    type="checkbox"
+                    checked={form.is_best_seller}
+                    onChange={(e) => set("is_best_seller", e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-foreground"
+                  />
                   <span className="text-sm">Best Seller</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.featured} onChange={(e) => set("featured", e.target.checked)} className="h-4 w-4 rounded border-border accent-foreground" />
+                  <input
+                    type="checkbox"
+                    checked={form.featured}
+                    onChange={(e) => set("featured", e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-foreground"
+                  />
                   <span className="text-sm">Featured Product</span>
                 </label>
               </div>
@@ -589,8 +799,12 @@ export function ProductForm({ open, onClose, onSaved, productId }: Props) {
             {errors.submit && <p className="text-xs text-red text-center">{errors.submit}</p>}
 
             <div className="flex justify-end gap-3 pt-2 border-t border-border/60">
-              <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save Changes" : "Create Product"}</Button>
+              <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Product"}
+              </Button>
             </div>
           </form>
         )}

@@ -130,7 +130,9 @@ export function useProductsManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, status, categoryId, stockStatus]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { result, loading, error, refetch: load };
 }
@@ -177,7 +179,8 @@ export async function createProduct(data: {
   featured?: boolean;
   status?: string;
 }) {
-  const isActive = (data.status ?? "draft") === "active" || (data.status ?? "draft") === "out_of_stock";
+  const isActive =
+    (data.status ?? "draft") === "active" || (data.status ?? "draft") === "out_of_stock";
   const { error } = await supabase.from("products").insert({
     name: data.name,
     slug: data.slug,
@@ -292,7 +295,9 @@ export async function getActiveCategoriesTree(): Promise<CategoryNode[]> {
   return (data ?? []) as CategoryNode[];
 }
 
-export async function getAllActiveCategories(): Promise<{ id: string; name: string; parent_id: string | null }[]> {
+export async function getAllActiveCategories(): Promise<
+  { id: string; name: string; parent_id: string | null }[]
+> {
   const { data, error } = await supabase
     .from("categories")
     .select("id, name, parent_id")
@@ -318,9 +323,7 @@ export async function uploadProductImage(
     });
   if (uploadError) throw uploadError;
 
-  const { data: urlData } = supabase.storage
-    .from("product-images")
-    .getPublicUrl(filePath);
+  const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(filePath);
 
   const imageUrl = urlData?.publicUrl ?? "";
   if (!imageUrl) throw new Error("Failed to get public URL");

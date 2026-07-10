@@ -1,10 +1,43 @@
 import { useState } from "react";
-import { useCouponsManagement, useCouponAnalytics, createCoupon, updateCoupon, deleteCoupon, toggleCouponStatus, type CouponRow } from "@/lib/admin-coupons";
+import {
+  useCouponsManagement,
+  useCouponAnalytics,
+  createCoupon,
+  updateCoupon,
+  deleteCoupon,
+  toggleCouponStatus,
+  type CouponRow,
+} from "@/lib/admin-coupons";
 import { DashboardCard } from "@/components/admin/DashboardCard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tag, CheckCircle, XCircle, AlertTriangle, Clock, RefreshCw, ArrowUpDown, Plus, Search } from "lucide-react";
+import {
+  Tag,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  RefreshCw,
+  ArrowUpDown,
+  Plus,
+  Search,
+} from "lucide-react";
 
 const PAGE_SIZE = 10;
 
@@ -19,7 +52,15 @@ export function CouponsTable() {
   const [editing, setEditing] = useState<CouponRow | null>(null);
   const [deleting, setDeleting] = useState<CouponRow | null>(null);
 
-  const { result, loading, error, refetch } = useCouponsManagement(page, PAGE_SIZE, search, sortBy, sortDir, statusFilter, typeFilter);
+  const { result, loading, error, refetch } = useCouponsManagement(
+    page,
+    PAGE_SIZE,
+    search,
+    sortBy,
+    sortDir,
+    statusFilter,
+    typeFilter,
+  );
   const { data: analytics, refetch: refetchAnalytics } = useCouponAnalytics();
 
   const totalPages = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
@@ -41,9 +82,12 @@ export function CouponsTable() {
 
   function statusLabel(c: CouponRow): { label: string; color: string } {
     if (!c.is_active) return { label: "Inactive", color: "text-stone-500 dark:text-stone-400" };
-    if (c.expires_at && new Date(c.expires_at) <= new Date()) return { label: "Expired", color: "text-red/60" };
-    if (c.max_uses !== null && c.used_count >= c.max_uses) return { label: "Exhausted", color: "text-amber-600 dark:text-amber-400" };
-    if (c.starts_at && new Date(c.starts_at) > new Date()) return { label: "Scheduled", color: "text-blue-600 dark:text-blue-400" };
+    if (c.expires_at && new Date(c.expires_at) <= new Date())
+      return { label: "Expired", color: "text-red/60" };
+    if (c.max_uses !== null && c.used_count >= c.max_uses)
+      return { label: "Exhausted", color: "text-amber-600 dark:text-amber-400" };
+    if (c.starts_at && new Date(c.starts_at) > new Date())
+      return { label: "Scheduled", color: "text-blue-600 dark:text-blue-400" };
     return { label: "Active", color: "text-emerald-600 dark:text-emerald-400" };
   }
 
@@ -74,11 +118,31 @@ export function CouponsTable() {
       {/* Analytics Cards */}
       {analytics && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <DashboardCard label="Total Coupons" value={analytics.total_coupons.toLocaleString()} icon={<Tag className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />} />
-          <DashboardCard label="Active" value={analytics.active_coupons.toLocaleString()} icon={<CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />} />
-          <DashboardCard label="Expired" value={analytics.expired_coupons.toLocaleString()} icon={<XCircle className="h-4 w-4 text-red/60" />} />
-          <DashboardCard label="Redemptions" value={analytics.total_redemptions.toLocaleString()} icon={<Clock className="h-4 w-4 text-sky-600 dark:text-sky-400" />} />
-          <DashboardCard label="Revenue Impact" value={`$${analytics.total_discounted.toLocaleString()}`} icon={<Tag className="h-4 w-4 text-amber-600 dark:text-amber-400" />} />
+          <DashboardCard
+            label="Total Coupons"
+            value={analytics.total_coupons.toLocaleString()}
+            icon={<Tag className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
+          />
+          <DashboardCard
+            label="Active"
+            value={analytics.active_coupons.toLocaleString()}
+            icon={<CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+          />
+          <DashboardCard
+            label="Expired"
+            value={analytics.expired_coupons.toLocaleString()}
+            icon={<XCircle className="h-4 w-4 text-red/60" />}
+          />
+          <DashboardCard
+            label="Redemptions"
+            value={analytics.total_redemptions.toLocaleString()}
+            icon={<Clock className="h-4 w-4 text-sky-600 dark:text-sky-400" />}
+          />
+          <DashboardCard
+            label="Revenue Impact"
+            value={`$${analytics.total_discounted.toLocaleString()}`}
+            icon={<Tag className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+          />
         </div>
       )}
 
@@ -91,13 +155,19 @@ export function CouponsTable() {
             placeholder="Search by code or description..."
             className="w-full border border-border/60 bg-transparent py-2 pl-10 pr-4 text-sm outline-none focus:border-foreground/30 transition-colors"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <select
           className="border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
@@ -108,7 +178,10 @@ export function CouponsTable() {
         <select
           className="border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
           value={typeFilter}
-          onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setTypeFilter(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="">All Types</option>
           <option value="percentage">Percentage</option>
@@ -121,7 +194,10 @@ export function CouponsTable() {
           <Plus className="h-3 w-3" /> Add Coupon
         </button>
         <button
-          onClick={() => { refetch(); refetchAnalytics(); }}
+          onClick={() => {
+            refetch();
+            refetchAnalytics();
+          }}
           className="border border-border/60 p-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
@@ -138,73 +214,105 @@ export function CouponsTable() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 bg-neutral/30">
-              <Th onClick={() => toggleSort("code")}><SortIcon col="code" /> Code</Th>
-              <Th onClick={() => toggleSort("discount_type")}><SortIcon col="discount_type" /> Type</Th>
-              <Th onClick={() => toggleSort("discount_value")}><SortIcon col="discount_value" /> Value</Th>
+              <Th onClick={() => toggleSort("code")}>
+                <SortIcon col="code" /> Code
+              </Th>
+              <Th onClick={() => toggleSort("discount_type")}>
+                <SortIcon col="discount_type" /> Type
+              </Th>
+              <Th onClick={() => toggleSort("discount_value")}>
+                <SortIcon col="discount_value" /> Value
+              </Th>
               <Th>Status</Th>
-              <Th onClick={() => toggleSort("used_count")}><SortIcon col="used_count" /> Used</Th>
-              <Th onClick={() => toggleSort("max_uses")}><SortIcon col="max_uses" /> Limit</Th>
-              <Th onClick={() => toggleSort("starts_at")}><SortIcon col="starts_at" /> Start</Th>
-              <Th onClick={() => toggleSort("expires_at")}><SortIcon col="expires_at" /> Expiry</Th>
+              <Th onClick={() => toggleSort("used_count")}>
+                <SortIcon col="used_count" /> Used
+              </Th>
+              <Th onClick={() => toggleSort("max_uses")}>
+                <SortIcon col="max_uses" /> Limit
+              </Th>
+              <Th onClick={() => toggleSort("starts_at")}>
+                <SortIcon col="starts_at" /> Start
+              </Th>
+              <Th onClick={() => toggleSort("expires_at")}>
+                <SortIcon col="expires_at" /> Expiry
+              </Th>
               <Th className="text-right">Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {loading && !result && (
+            {loading &&
+              !result &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-border/40">
                   {Array.from({ length: 9 }).map((_, j) => (
-                    <td key={j} className="px-3 py-3"><Skeleton className="h-4 w-20" /></td>
+                    <td key={j} className="px-3 py-3">
+                      <Skeleton className="h-4 w-20" />
+                    </td>
                   ))}
                 </tr>
-              ))
-            )}
+              ))}
             {result && result.coupons.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-sm text-muted-foreground">No coupons found.</td>
+                <td colSpan={9} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                  No coupons found.
+                </td>
               </tr>
             )}
-            {result && result.coupons.map((c) => {
-              const st = statusLabel(c);
-              return (
-                <tr key={c.id} className="border-b border-border/40 hover:bg-neutral/20 transition-colors">
-                  <td className="px-3 py-3 font-medium">{c.code}</td>
-                  <td className="px-3 py-3 text-muted-foreground capitalize">{c.discount_type}</td>
-                  <td className="px-3 py-3 tabular-nums">
-                    {c.discount_type === "percentage" ? `${c.discount_value}%` : `$${c.discount_value}`}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className={`text-[11px] tracking-wider uppercase ${st.color}`}>{st.label}</span>
-                  </td>
-                  <td className="px-3 py-3 tabular-nums">{c.used_count}</td>
-                  <td className="px-3 py-3 tabular-nums">{c.max_uses ?? "—"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{c.starts_at ? new Date(c.starts_at).toLocaleDateString() : "—"}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "—"}</td>
-                  <td className="px-3 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => setEditing(c)}
-                        className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggle(c.id)}
-                        className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {c.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => setDeleting(c)}
-                        className="px-2 py-1 text-[11px] tracking-wider uppercase text-red/60 hover:text-red transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {result &&
+              result.coupons.map((c) => {
+                const st = statusLabel(c);
+                return (
+                  <tr
+                    key={c.id}
+                    className="border-b border-border/40 hover:bg-neutral/20 transition-colors"
+                  >
+                    <td className="px-3 py-3 font-medium">{c.code}</td>
+                    <td className="px-3 py-3 text-muted-foreground capitalize">
+                      {c.discount_type}
+                    </td>
+                    <td className="px-3 py-3 tabular-nums">
+                      {c.discount_type === "percentage"
+                        ? `${c.discount_value}%`
+                        : `$${c.discount_value}`}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`text-[11px] tracking-wider uppercase ${st.color}`}>
+                        {st.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 tabular-nums">{c.used_count}</td>
+                    <td className="px-3 py-3 tabular-nums">{c.max_uses ?? "—"}</td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {c.starts_at ? new Date(c.starts_at).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setEditing(c)}
+                          className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggle(c.id)}
+                          className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {c.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                        <button
+                          onClick={() => setDeleting(c)}
+                          className="px-2 py-1 text-[11px] tracking-wider uppercase text-red/60 hover:text-red transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
@@ -212,9 +320,7 @@ export function CouponsTable() {
       {/* Pagination */}
       {result && totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-[11px] tracking-[0.2em] text-muted-foreground">
-            {result.total} total
-          </p>
+          <p className="text-[11px] tracking-[0.2em] text-muted-foreground">{result.total} total</p>
           <div className="flex items-center gap-2">
             <button
               disabled={page === 1}
@@ -247,8 +353,16 @@ export function CouponsTable() {
       {(showAdd || editing) && (
         <CouponFormDialog
           coupon={editing}
-          onClose={() => { setShowAdd(false); setEditing(null); }}
-          onSaved={() => { setShowAdd(false); setEditing(null); refetch(); refetchAnalytics(); }}
+          onClose={() => {
+            setShowAdd(false);
+            setEditing(null);
+          }}
+          onSaved={() => {
+            setShowAdd(false);
+            setEditing(null);
+            refetch();
+            refetchAnalytics();
+          }}
         />
       )}
 
@@ -258,7 +372,8 @@ export function CouponsTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Coupon</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete coupon <strong>{deleting?.code}</strong>? This action cannot be undone.
+              Are you sure you want to delete coupon <strong>{deleting?.code}</strong>? This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -273,7 +388,15 @@ export function CouponsTable() {
   );
 }
 
-function Th({ children, onClick, className }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+function Th({
+  children,
+  onClick,
+  className,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+}) {
   return (
     <th
       onClick={onClick}
@@ -284,7 +407,15 @@ function Th({ children, onClick, className }: { children: React.ReactNode; onCli
   );
 }
 
-function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | null; onClose: () => void; onSaved: () => void }) {
+function CouponFormDialog({
+  coupon,
+  onClose,
+  onSaved,
+}: {
+  coupon: CouponRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [code, setCode] = useState(coupon?.code ?? "");
   const [description, setDescription] = useState(coupon?.description ?? "");
   const [discountType, setDiscountType] = useState(coupon?.discount_type ?? "percentage");
@@ -293,21 +424,27 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
   const [maxUses, setMaxUses] = useState(coupon?.max_uses?.toString() ?? "");
   const [maxDiscount, setMaxDiscount] = useState(coupon?.maximum_discount_amount?.toString() ?? "");
   const [startsAt, setStartsAt] = useState(coupon?.starts_at ? coupon.starts_at.slice(0, 16) : "");
-  const [expiresAt, setExpiresAt] = useState(coupon?.expires_at ? coupon.expires_at.slice(0, 16) : "");
+  const [expiresAt, setExpiresAt] = useState(
+    coupon?.expires_at ? coupon.expires_at.slice(0, 16) : "",
+  );
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   function validate() {
     if (!code.trim()) return "Code is required";
     if (!discountValue || Number(discountValue) <= 0) return "Discount value must be positive";
-    if (discountType === "percentage" && Number(discountValue) > 100) return "Percentage cannot exceed 100";
+    if (discountType === "percentage" && Number(discountValue) > 100)
+      return "Percentage cannot exceed 100";
     return null;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const err = validate();
-    if (err) { setFormError(err); return; }
+    if (err) {
+      setFormError(err);
+      return;
+    }
     setSaving(true);
     setFormError(null);
     try {
@@ -323,11 +460,42 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
         p_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       };
       if (coupon) {
-        const result = await updateCoupon({ ...params, p_id: coupon.id } as { p_id: string; p_code?: string; p_description?: string; p_discount_type?: string; p_discount_value?: number; p_min_order?: number; p_max_uses?: number; p_maximum_discount_amount?: number; p_starts_at?: string; p_expires_at?: string });
-        if (!result.success) { setFormError(result.error ?? "Failed to update"); setSaving(false); return; }
+        const result = await updateCoupon({ ...params, p_id: coupon.id } as {
+          p_id: string;
+          p_code?: string;
+          p_description?: string;
+          p_discount_type?: string;
+          p_discount_value?: number;
+          p_min_order?: number;
+          p_max_uses?: number;
+          p_maximum_discount_amount?: number;
+          p_starts_at?: string;
+          p_expires_at?: string;
+        });
+        if (!result.success) {
+          setFormError(result.error ?? "Failed to update");
+          setSaving(false);
+          return;
+        }
       } else {
-        const result = await createCoupon(params as { p_code: string; p_description?: string; p_discount_type: string; p_discount_value: number; p_min_order?: number; p_max_uses?: number; p_maximum_discount_amount?: number; p_starts_at?: string; p_expires_at?: string });
-        if (!result.success) { setFormError(result.error ?? "Failed to create"); setSaving(false); return; }
+        const result = await createCoupon(
+          params as {
+            p_code: string;
+            p_description?: string;
+            p_discount_type: string;
+            p_discount_value: number;
+            p_min_order?: number;
+            p_max_uses?: number;
+            p_maximum_discount_amount?: number;
+            p_starts_at?: string;
+            p_expires_at?: string;
+          },
+        );
+        if (!result.success) {
+          setFormError(result.error ?? "Failed to create");
+          setSaving(false);
+          return;
+        }
       }
       onSaved();
     } catch (err) {
@@ -350,7 +518,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
           {formError && <p className="text-sm text-red/80 bg-red/5 p-3">{formError}</p>}
 
           <div>
-            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Code</label>
+            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+              Code
+            </label>
             <input
               required
               className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
@@ -361,7 +531,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
           </div>
 
           <div>
-            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Description</label>
+            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+              Description
+            </label>
             <input
               className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
               value={description}
@@ -372,7 +544,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Discount Type</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Discount Type
+              </label>
               <select
                 className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
                 value={discountType}
@@ -383,7 +557,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
               </select>
             </div>
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Value</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Value
+              </label>
               <input
                 required
                 type="number"
@@ -399,7 +575,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Min Order</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Min Order
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -410,7 +588,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
               />
             </div>
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Max Discount ($)</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Max Discount ($)
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -425,7 +605,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Max Uses</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Max Uses
+              </label>
               <input
                 type="number"
                 min="1"
@@ -442,7 +624,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Start Date</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Start Date
+              </label>
               <input
                 type="datetime-local"
                 className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
@@ -451,7 +635,9 @@ function CouponFormDialog({ coupon, onClose, onSaved }: { coupon: CouponRow | nu
               />
             </div>
             <div>
-              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Expiry Date</label>
+              <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+                Expiry Date
+              </label>
               <input
                 type="datetime-local"
                 className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"

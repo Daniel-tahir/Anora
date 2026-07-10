@@ -88,14 +88,14 @@ export function useAnalyticsSummary() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { summary, loading, error, refetch: load };
 }
 
-export function useSalesAnalytics(
-  period: "daily" | "weekly" | "monthly" | "yearly" = "daily",
-) {
+export function useSalesAnalytics(period: "daily" | "weekly" | "monthly" | "yearly" = "daily") {
   const [data, setData] = useState<SalesDataPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +115,9 @@ export function useSalesAnalytics(
     }
   }, [period]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { data, loading, error, refetch: load };
 }
@@ -138,7 +140,9 @@ export function useRevenueAnalytics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { analytics, loading, error, refetch: load };
 }
@@ -161,7 +165,9 @@ export function useOrdersByStatus() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { data, loading, error, refetch: load };
 }
@@ -184,7 +190,9 @@ export function useOrdersByCategory() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { data, loading, error, refetch: load };
 }
@@ -207,7 +215,9 @@ export function useCustomerAnalytics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { analytics, loading, error, refetch: load };
 }
@@ -232,7 +242,9 @@ export function useTopSellingProducts() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { data, loading, error, refetch: load };
 }
@@ -257,7 +269,9 @@ export function useBottomSellingProducts() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { data, loading, error, refetch: load };
 }

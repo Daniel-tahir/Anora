@@ -21,7 +21,7 @@ function ReviewsPage() {
           </p>
         </div>
         <ReviewsTable />
-      
-    </div></AdminLayout>
+      </div>
+    </AdminLayout>
   );
 }

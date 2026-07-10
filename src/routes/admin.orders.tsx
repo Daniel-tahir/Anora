@@ -14,11 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  useOrderMetrics,
-  useOrdersManagement,
-  type OrderManagementRow,
-} from "@/lib/admin-orders";
+import { useOrderMetrics, useOrdersManagement, type OrderManagementRow } from "@/lib/admin-orders";
 
 export const Route = createFileRoute("/admin/orders")({
   head: () => ({
@@ -54,7 +50,17 @@ function StatusBadge({ status, map }: { status: string; map: Record<string, stri
   );
 }
 
-const ORDER_STATUSES = ["", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned", "refunded"];
+const ORDER_STATUSES = [
+  "",
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+  "returned",
+  "refunded",
+];
 const PAYMENT_STATUSES = ["", "pending", "completed", "failed", "refunded"];
 const DATE_PRESETS = [
   { label: "All", value: "" },
@@ -69,24 +75,38 @@ function getDateRange(preset: string): { from: string; to: string } {
   const to = now.toISOString().split("T")[0];
   if (preset === "today") return { from: to, to };
   if (preset === "7days") {
-    const d = new Date(now); d.setDate(d.getDate() - 7);
+    const d = new Date(now);
+    d.setDate(d.getDate() - 7);
     return { from: d.toISOString().split("T")[0], to };
   }
   if (preset === "30days") {
-    const d = new Date(now); d.setDate(d.getDate() - 30);
+    const d = new Date(now);
+    d.setDate(d.getDate() - 30);
     return { from: d.toISOString().split("T")[0], to };
   }
   if (preset === "90days") {
-    const d = new Date(now); d.setDate(d.getDate() - 90);
+    const d = new Date(now);
+    d.setDate(d.getDate() - 90);
     return { from: d.toISOString().split("T")[0], to };
   }
   return { from: "", to: "" };
 }
 
-const SORTABLE_COLUMNS = new Set(["created_at", "total", "status", "payment_status", "customer_name"]);
+const SORTABLE_COLUMNS = new Set([
+  "created_at",
+  "total",
+  "status",
+  "payment_status",
+  "customer_name",
+]);
 
 function OrdersPage() {
-  const { metrics, loading: metricsLoading, error: metricsError, refetch: refetchMetrics } = useOrderMetrics();
+  const {
+    metrics,
+    loading: metricsLoading,
+    error: metricsError,
+    refetch: refetchMetrics,
+  } = useOrderMetrics();
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -103,9 +123,8 @@ function OrdersPage() {
 
   const pageSize = 15;
 
-  const dateRange = datePreset === "custom"
-    ? { from: customFrom, to: customTo }
-    : getDateRange(datePreset);
+  const dateRange =
+    datePreset === "custom" ? { from: customFrom, to: customTo } : getDateRange(datePreset);
 
   const {
     result,
@@ -113,8 +132,15 @@ function OrdersPage() {
     error: ordersError,
     refetch: refetchOrders,
   } = useOrdersManagement(
-    page, pageSize, search, sortBy, sortDir,
-    statusFilter, paymentFilter, dateRange.from, dateRange.to,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
+    statusFilter,
+    paymentFilter,
+    dateRange.from,
+    dateRange.to,
   );
 
   const debouncedSearch = useCallback(
@@ -122,7 +148,10 @@ function OrdersPage() {
       let timer: ReturnType<typeof setTimeout>;
       return (val: string) => {
         clearTimeout(timer);
-        timer = setTimeout(() => { setSearch(val); setPage(1); }, 300);
+        timer = setTimeout(() => {
+          setSearch(val);
+          setPage(1);
+        }, 300);
       };
     })(),
     [],
@@ -174,7 +203,9 @@ function OrdersPage() {
         {metricsError && (
           <div className="border border-red/20 bg-red/5 p-6 text-center mb-8">
             <p className="text-sm text-red/80">{metricsError}</p>
-            <Button variant="outline" size="sm" onClick={refetchMetrics} className="mt-3">Retry</Button>
+            <Button variant="outline" size="sm" onClick={refetchMetrics} className="mt-3">
+              Retry
+            </Button>
           </div>
         )}
 
@@ -184,12 +215,36 @@ function OrdersPage() {
           ) : metrics ? (
             <>
               <DashboardCard label="Total Orders" value={metrics.totalOrders.toLocaleString()} />
-              <DashboardCard label="Pending" value={metrics.pendingOrders.toLocaleString()} icon={<StatusBadge status="pending" map={STATUS_BADGES} />} />
-              <DashboardCard label="Processing" value={metrics.processingOrders.toLocaleString()} icon={<StatusBadge status="processing" map={STATUS_BADGES} />} />
-              <DashboardCard label="Delivered" value={metrics.deliveredOrders.toLocaleString()} icon={<StatusBadge status="delivered" map={STATUS_BADGES} />} />
-              <DashboardCard label="Cancelled" value={metrics.cancelledOrders.toLocaleString()} icon={<StatusBadge status="cancelled" map={STATUS_BADGES} />} />
-              <DashboardCard label="Returned" value={metrics.returnedOrders.toLocaleString()} icon={<StatusBadge status="returned" map={STATUS_BADGES} />} />
-              <DashboardCard label="Refunded" value={metrics.refundedOrders.toLocaleString()} icon={<StatusBadge status="refunded" map={STATUS_BADGES} />} />
+              <DashboardCard
+                label="Pending"
+                value={metrics.pendingOrders.toLocaleString()}
+                icon={<StatusBadge status="pending" map={STATUS_BADGES} />}
+              />
+              <DashboardCard
+                label="Processing"
+                value={metrics.processingOrders.toLocaleString()}
+                icon={<StatusBadge status="processing" map={STATUS_BADGES} />}
+              />
+              <DashboardCard
+                label="Delivered"
+                value={metrics.deliveredOrders.toLocaleString()}
+                icon={<StatusBadge status="delivered" map={STATUS_BADGES} />}
+              />
+              <DashboardCard
+                label="Cancelled"
+                value={metrics.cancelledOrders.toLocaleString()}
+                icon={<StatusBadge status="cancelled" map={STATUS_BADGES} />}
+              />
+              <DashboardCard
+                label="Returned"
+                value={metrics.returnedOrders.toLocaleString()}
+                icon={<StatusBadge status="returned" map={STATUS_BADGES} />}
+              />
+              <DashboardCard
+                label="Refunded"
+                value={metrics.refundedOrders.toLocaleString()}
+                icon={<StatusBadge status="refunded" map={STATUS_BADGES} />}
+              />
             </>
           ) : null}
         </div>
@@ -200,30 +255,43 @@ function OrdersPage() {
             <Input
               placeholder="Search by order ID, customer name, email…"
               value={searchInput}
-              onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                debouncedSearch(e.target.value);
+              }}
               className="max-w-sm h-9 text-sm"
             />
 
             <div className="flex gap-2 flex-wrap">
               <select
                 value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
               >
                 <option value="">All Statuses</option>
                 {ORDER_STATUSES.filter(Boolean).map((s) => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
                 ))}
               </select>
 
               <select
                 value={paymentFilter}
-                onChange={(e) => { setPaymentFilter(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setPaymentFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
               >
                 <option value="">All Payments</option>
                 {PAYMENT_STATUSES.filter(Boolean).map((s) => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
                 ))}
               </select>
             </div>
@@ -255,9 +323,19 @@ function OrdersPage() {
             </button>
             {datePreset === "custom" && (
               <div className="flex items-center gap-2 ml-2">
-                <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-8 w-36 text-xs" />
+                <Input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                />
                 <span className="text-xs text-muted-foreground">to</span>
-                <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-8 w-36 text-xs" />
+                <Input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                />
               </div>
             )}
           </div>
@@ -267,7 +345,9 @@ function OrdersPage() {
         {ordersError && (
           <div className="border border-red/20 bg-red/5 p-6 text-center mb-6">
             <p className="text-sm text-red/80">{ordersError}</p>
-            <Button variant="outline" size="sm" onClick={refetchOrders} className="mt-3">Retry</Button>
+            <Button variant="outline" size="sm" onClick={refetchOrders} className="mt-3">
+              Retry
+            </Button>
           </div>
         )}
 
@@ -275,7 +355,9 @@ function OrdersPage() {
         {ordersLoading && !ordersError && (
           <div className="space-y-3">
             <Skeleton className="h-10 w-full" />
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
           </div>
         )}
 
@@ -297,22 +379,36 @@ function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort("customer_name")}>
-                      Customer<SortIcon column="customer_name" />
+                    <TableHead
+                      className="cursor-pointer"
+                      onClick={() => toggleSort("customer_name")}
+                    >
+                      Customer
+                      <SortIcon column="customer_name" />
                     </TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("total")}>
-                      Total<SortIcon column="total" />
+                    <TableHead
+                      className="cursor-pointer text-right"
+                      onClick={() => toggleSort("total")}
+                    >
+                      Total
+                      <SortIcon column="total" />
                     </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort("payment_status")}>
-                      Payment<SortIcon column="payment_status" />
+                    <TableHead
+                      className="cursor-pointer"
+                      onClick={() => toggleSort("payment_status")}
+                    >
+                      Payment
+                      <SortIcon column="payment_status" />
                     </TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort("status")}>
-                      Status<SortIcon column="status" />
+                      Status
+                      <SortIcon column="status" />
                     </TableHead>
                     <TableHead className="text-right">Items</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort("created_at")}>
-                      Date<SortIcon column="created_at" />
+                      Date
+                      <SortIcon column="created_at" />
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -323,9 +419,7 @@ function OrdersPage() {
                       className="cursor-pointer hover:bg-muted/30"
                       onClick={() => openDrawer(order.id)}
                     >
-                      <TableCell className="font-medium">
-                        {order.customer_name}
-                      </TableCell>
+                      <TableCell className="font-medium">{order.customer_name}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">
                         {order.customer_email}
                       </TableCell>
@@ -343,7 +437,9 @@ function OrdersPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(order.created_at).toLocaleDateString("en-US", {
-                          month: "short", day: "numeric", year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
                         })}
                       </TableCell>
                     </TableRow>
@@ -354,9 +450,16 @@ function OrdersPage() {
 
             {/* Pagination */}
             <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
-              <span>{result.total} order{result.total !== 1 ? "s" : ""}</span>
+              <span>
+                {result.total} order{result.total !== 1 ? "s" : ""}
+              </span>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
                   Previous
                 </Button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -377,7 +480,12 @@ function OrdersPage() {
                     </button>
                   );
                 })}
-                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                >
                   Next
                 </Button>
               </div>
@@ -388,10 +496,16 @@ function OrdersPage() {
         <OrderDetailsDrawer
           orderId={selectedOrderId}
           open={drawerOpen}
-          onClose={() => { setDrawerOpen(false); setSelectedOrderId(null); }}
-          onUpdated={() => { refetchOrders(); refetchMetrics(); }}
+          onClose={() => {
+            setDrawerOpen(false);
+            setSelectedOrderId(null);
+          }}
+          onUpdated={() => {
+            refetchOrders();
+            refetchMetrics();
+          }}
         />
-      
-    </div></AdminLayout>
+      </div>
+    </AdminLayout>
   );
 }

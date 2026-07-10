@@ -36,7 +36,11 @@ const ACTION_BADGES: Record<string, string> = {
 
 function ActionBadge({ action }: { action: string }) {
   const cls = ACTION_BADGES[action] ?? "bg-neutral-100 text-muted-foreground";
-  return <span className={`inline-block px-2 py-0.5 text-[10px] tracking-[0.15em] uppercase ${cls}`}>{action.replace(/_/g, " ")}</span>;
+  return (
+    <span className={`inline-block px-2 py-0.5 text-[10px] tracking-[0.15em] uppercase ${cls}`}>
+      {action.replace(/_/g, " ")}
+    </span>
+  );
 }
 
 export function ActivityTimeline() {
@@ -46,14 +50,23 @@ export function ActivityTimeline() {
   const [searchInput, setSearchInput] = useState("");
 
   const pageSize = 30;
-  const { result, loading, error, refetch } = useActivityTimeline(page, pageSize, entityType, "", search);
+  const { result, loading, error, refetch } = useActivityTimeline(
+    page,
+    pageSize,
+    entityType,
+    "",
+    search,
+  );
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
 
   const debouncedSearch = (() => {
     let timer: ReturnType<typeof setTimeout>;
     return (val: string) => {
       clearTimeout(timer);
-      timer = setTimeout(() => { setSearch(val); setPage(1); }, 300);
+      timer = setTimeout(() => {
+        setSearch(val);
+        setPage(1);
+      }, 300);
     };
   })();
 
@@ -71,22 +84,34 @@ export function ActivityTimeline() {
         <Input
           placeholder="Search activities…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
           className="max-w-sm h-9 text-sm"
         />
         <select
           value={entityType}
-          onChange={(e) => { setEntityType(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setEntityType(e.target.value);
+            setPage(1);
+          }}
           className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
         >
-          {ENTITY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          {ENTITY_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
         </select>
       </div>
 
       {error && (
         <div className="border border-red/20 bg-red/5 p-6 text-center mb-6">
           <p className="text-sm text-red/80">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">
+            Retry
+          </Button>
         </div>
       )}
 
@@ -114,10 +139,17 @@ export function ActivityTimeline() {
         <>
           <div className="space-y-2">
             {result.activities.map((entry: ActivityEntry) => (
-              <div key={entry.id} className="flex items-start gap-4 p-4 border border-border/40 hover:bg-muted/20 transition-colors">
+              <div
+                key={entry.id}
+                className="flex items-start gap-4 p-4 border border-border/40 hover:bg-muted/20 transition-colors"
+              >
                 <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
                   {entry.actor_avatar ? (
-                    <img src={entry.actor_avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    <img
+                      src={entry.actor_avatar}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
                   ) : (
                     <User className="h-4 w-4 text-muted-foreground" />
                   )}
@@ -126,14 +158,19 @@ export function ActivityTimeline() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">{entry.actor_name || "System"}</span>
                     <ActionBadge action={entry.action} />
-                    <span className="text-sm text-muted-foreground capitalize">{entry.entity_type?.replace(/_/g, " ")}</span>
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {entry.entity_type?.replace(/_/g, " ")}
+                    </span>
                     {entry.entity_id && (
-                      <span className="text-[10px] text-muted-foreground font-mono">#{entry.entity_id.slice(0, 8)}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        #{entry.entity_id.slice(0, 8)}
+                      </span>
                     )}
                   </div>
                   {entry.metadata && entry.action === "order_status_changed" && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Status changed: {(entry.metadata as any).from_status} → {(entry.metadata as any).to_status}
+                      Status changed: {(entry.metadata as any).from_status} →{" "}
+                      {(entry.metadata as any).to_status}
                     </p>
                   )}
                   <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
@@ -146,11 +183,29 @@ export function ActivityTimeline() {
           </div>
 
           <div className="flex items-center justify-between pt-6 text-sm text-muted-foreground">
-            <span>{result.total} activity event{result.total !== 1 ? "s" : ""}</span>
+            <span>
+              {result.total} activity event{result.total !== 1 ? "s" : ""}
+            </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-xs">{page} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-xs">
+                {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         </>

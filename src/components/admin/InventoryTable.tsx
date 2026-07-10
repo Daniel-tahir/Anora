@@ -17,10 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  useInventoryManagement,
-  type InventoryProductRow,
-} from "@/lib/admin-inventory";
+import { useInventoryManagement, type InventoryProductRow } from "@/lib/admin-inventory";
 import { supabase } from "@/lib/supabase";
 import { AdjustStockDialog } from "./AdjustStockDialog";
 import { InventoryHistoryDrawer } from "./InventoryHistoryDrawer";
@@ -45,15 +42,22 @@ export function InventoryTable() {
   const pageSize = 20;
 
   const { result, loading, error, refetch } = useInventoryManagement(
-    page, pageSize, search, sortBy, sortDir,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
     stockStatus === "all" ? "" : stockStatus,
     categoryId === "all" ? "" : categoryId,
   );
 
   useEffect(() => {
-    supabase.from("categories").select("id, name").then(({ data }) => {
-      if (data) setCategories(data);
-    });
+    supabase
+      .from("categories")
+      .select("id, name")
+      .then(({ data }) => {
+        if (data) setCategories(data);
+      });
   }, []);
 
   function handleSort(column: string) {
@@ -79,12 +83,18 @@ export function InventoryTable() {
         <Input
           placeholder="Search products..."
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="max-w-xs"
         />
         <Select
           value={stockStatus}
-          onValueChange={(val) => { setStockStatus(val); setPage(1); }}
+          onValueChange={(val) => {
+            setStockStatus(val);
+            setPage(1);
+          }}
         >
           <SelectTrigger className="w-36">
             <SelectValue placeholder="All stock" />
@@ -99,7 +109,10 @@ export function InventoryTable() {
         </Select>
         <Select
           value={categoryId}
-          onValueChange={(val) => { setCategoryId(val); setPage(1); }}
+          onValueChange={(val) => {
+            setCategoryId(val);
+            setPage(1);
+          }}
         >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All categories" />
@@ -107,7 +120,9 @@ export function InventoryTable() {
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
             {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -159,11 +174,7 @@ export function InventoryTable() {
                   <TableCell>{getStockBadge(product.stock)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAdjustProduct(product)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => setAdjustProduct(product)}>
                         Adjust
                       </Button>
                       <Button
@@ -183,9 +194,7 @@ export function InventoryTable() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {result?.total ?? 0} total
-        </p>
+        <p className="text-sm text-muted-foreground">{result?.total ?? 0} total</p>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -213,8 +222,13 @@ export function InventoryTable() {
         <AdjustStockDialog
           product={adjustProduct}
           open={!!adjustProduct}
-          onOpenChange={(open) => { if (!open) setAdjustProduct(null); }}
-          onSuccess={() => { setAdjustProduct(null); refetch(); }}
+          onOpenChange={(open) => {
+            if (!open) setAdjustProduct(null);
+          }}
+          onSuccess={() => {
+            setAdjustProduct(null);
+            refetch();
+          }}
         />
       )}
 

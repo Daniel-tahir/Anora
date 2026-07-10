@@ -27,6 +27,7 @@ $$;
 -- ─── Fix device_sessions FOR ALL policy ─────────────────────────────────────
 
 DROP POLICY IF EXISTS "System can manage device sessions" ON public.device_sessions;
+DROP POLICY IF EXISTS "Admins can manage device sessions" ON public.device_sessions;
 CREATE POLICY "Admins can manage device sessions"
   ON public.device_sessions
   FOR ALL

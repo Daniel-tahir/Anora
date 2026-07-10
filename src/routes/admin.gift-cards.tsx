@@ -21,7 +21,7 @@ function GiftCardsPage() {
           </p>
         </div>
         <GiftCardsTable />
-      
-    </div></AdminLayout>
+      </div>
+    </AdminLayout>
   );
 }

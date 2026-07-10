@@ -24,13 +24,16 @@ export function InventoryHistoryDrawer({ productId, onClose }: Props) {
   const { movements, loading, error } = useInventoryHistory(productId);
 
   return (
-    <Sheet open={!!productId} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Sheet
+      open={!!productId}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <SheetContent className="sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>Inventory History</SheetTitle>
-          <SheetDescription>
-            Stock movements for this product
-          </SheetDescription>
+          <SheetDescription>Stock movements for this product</SheetDescription>
         </SheetHeader>
         {loading ? (
           <p className="text-sm text-muted-foreground mt-4">Loading...</p>
@@ -54,7 +57,9 @@ export function InventoryHistoryDrawer({ productId, onClose }: Props) {
                 {movements.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="capitalize">{m.movement_type}</TableCell>
-                    <TableCell className={`text-right font-mono ${m.quantity > 0 ? "text-green-600" : "text-red-600"}`}>
+                    <TableCell
+                      className={`text-right font-mono ${m.quantity > 0 ? "text-green-600" : "text-red-600"}`}
+                    >
                       {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
                     </TableCell>
                     <TableCell className="text-right font-mono">{m.new_stock}</TableCell>

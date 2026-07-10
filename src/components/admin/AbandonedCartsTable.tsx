@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useAbandonedCarts, useAbandonedCartAnalytics, markCartRecovered, type AbandonedCartRow } from "@/lib/admin-security";
+import {
+  useAbandonedCarts,
+  useAbandonedCartAnalytics,
+  markCartRecovered,
+  type AbandonedCartRow,
+} from "@/lib/admin-security";
 import { DashboardCard } from "@/components/admin/DashboardCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,11 +20,20 @@ const STATUS_BADGES: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   const cls = STATUS_BADGES[status] ?? "bg-neutral-100 text-muted-foreground";
-  return <span className={`inline-block px-2.5 py-1 text-[10px] tracking-[0.2em] uppercase ${cls}`}>{status}</span>;
+  return (
+    <span className={`inline-block px-2.5 py-1 text-[10px] tracking-[0.2em] uppercase ${cls}`}>
+      {status}
+    </span>
+  );
 }
 
 function formatCurrency(val: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(val);
 }
 
 export function AbandonedCartsTable() {
@@ -39,13 +53,19 @@ export function AbandonedCartsTable() {
     let timer: ReturnType<typeof setTimeout>;
     return (val: string) => {
       clearTimeout(timer);
-      timer = setTimeout(() => { setSearch(val); setPage(1); }, 300);
+      timer = setTimeout(() => {
+        setSearch(val);
+        setPage(1);
+      }, 300);
     };
   })();
 
   function toggleSort(col: string) {
     if (sortBy === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortBy(col); setSortDir("desc"); }
+    else {
+      setSortBy(col);
+      setSortDir("desc");
+    }
     setPage(1);
   }
 
@@ -54,13 +74,35 @@ export function AbandonedCartsTable() {
     return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
   }
 
-  const metricCards = analytics ? [
-    { label: "Abandoned Carts", value: analytics.total_abandoned_carts.toLocaleString(), icon: <ShoppingCart className="h-4 w-4" /> },
-    { label: "Lost Revenue", value: formatCurrency(analytics.lost_revenue), icon: <TrendingUp className="h-4 w-4" /> },
-    { label: "Recovered Value", value: formatCurrency(analytics.recovered_revenue), icon: <RefreshCw className="h-4 w-4" /> },
-    { label: "Recovery Rate", value: `${analytics.recovery_rate}%`, icon: <DollarSign className="h-4 w-4" /> },
-    { label: "Avg Cart Value", value: formatCurrency(analytics.average_cart_value), icon: <ShoppingCart className="h-4 w-4" /> },
-  ] : [];
+  const metricCards = analytics
+    ? [
+        {
+          label: "Abandoned Carts",
+          value: analytics.total_abandoned_carts.toLocaleString(),
+          icon: <ShoppingCart className="h-4 w-4" />,
+        },
+        {
+          label: "Lost Revenue",
+          value: formatCurrency(analytics.lost_revenue),
+          icon: <TrendingUp className="h-4 w-4" />,
+        },
+        {
+          label: "Recovered Value",
+          value: formatCurrency(analytics.recovered_revenue),
+          icon: <RefreshCw className="h-4 w-4" />,
+        },
+        {
+          label: "Recovery Rate",
+          value: `${analytics.recovery_rate}%`,
+          icon: <DollarSign className="h-4 w-4" />,
+        },
+        {
+          label: "Avg Cart Value",
+          value: formatCurrency(analytics.average_cart_value),
+          icon: <ShoppingCart className="h-4 w-4" />,
+        },
+      ]
+    : [];
 
   return (
     <div>
@@ -74,7 +116,9 @@ export function AbandonedCartsTable() {
 
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-          {metricCards.map((c) => <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />)}
+          {metricCards.map((c) => (
+            <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />
+          ))}
         </div>
       )}
 
@@ -82,12 +126,18 @@ export function AbandonedCartsTable() {
         <Input
           placeholder="Search by customer or session…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
           className="max-w-sm h-9 text-sm"
         />
         <select
           value={status}
-          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
           className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
         >
           <option value="">All Statuses</option>
@@ -101,14 +151,18 @@ export function AbandonedCartsTable() {
       {error && (
         <div className="border border-red/20 bg-red/5 p-6 text-center mb-6">
           <p className="text-sm text-red/80">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">
+            Retry
+          </Button>
         </div>
       )}
 
       {loading && !error && (
         <div className="space-y-3">
           <Skeleton className="h-10 w-full" />
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
         </div>
       )}
 
@@ -124,11 +178,23 @@ export function AbandonedCartsTable() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/60">
-                  <Th onClick={() => toggleSort("user_name")}>Customer<SortIcon column="user_name" /></Th>
-                  <Th onClick={() => toggleSort("subtotal")}>Value<SortIcon column="subtotal" /></Th>
+                  <Th onClick={() => toggleSort("user_name")}>
+                    Customer
+                    <SortIcon column="user_name" />
+                  </Th>
+                  <Th onClick={() => toggleSort("subtotal")}>
+                    Value
+                    <SortIcon column="subtotal" />
+                  </Th>
                   <Th>Items</Th>
-                  <Th onClick={() => toggleSort("status")}>Status<SortIcon column="status" /></Th>
-                  <Th onClick={() => toggleSort("created_at")}>Created<SortIcon column="created_at" /></Th>
+                  <Th onClick={() => toggleSort("status")}>
+                    Status
+                    <SortIcon column="status" />
+                  </Th>
+                  <Th onClick={() => toggleSort("created_at")}>
+                    Created
+                    <SortIcon column="created_at" />
+                  </Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
@@ -136,18 +202,31 @@ export function AbandonedCartsTable() {
                 {result.carts.map((cart: AbandonedCartRow) => (
                   <tr key={cart.id} className="border-b border-border/40 hover:bg-muted/30">
                     <td className="px-4 py-3 text-sm">{cart.customer_name || "Guest"}</td>
-                    <td className="px-4 py-3 text-sm font-serif tabular-nums">{formatCurrency(cart.subtotal)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{cart.item_count} item{cart.item_count !== 1 ? "s" : ""}</td>
-                    <td className="px-4 py-3"><StatusBadge status={cart.status} /></td>
+                    <td className="px-4 py-3 text-sm font-serif tabular-nums">
+                      {formatCurrency(cart.subtotal)}
+                    </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {new Date(cart.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {cart.item_count} item{cart.item_count !== 1 ? "s" : ""}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={cart.status} />
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(cart.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {cart.status === "abandoned" && (
-                        <Button size="sm" variant="outline" onClick={async () => {
-                          await markCartRecovered(cart.id);
-                          refetch();
-                        }}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            await markCartRecovered(cart.id);
+                            refetch();
+                          }}
+                        >
                           Mark Recovered
                         </Button>
                       )}
@@ -159,11 +238,29 @@ export function AbandonedCartsTable() {
           </div>
 
           <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
-            <span>{result.total} cart{result.total !== 1 ? "s" : ""}</span>
+            <span>
+              {result.total} cart{result.total !== 1 ? "s" : ""}
+            </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-xs">{page} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-xs">
+                {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         </>
@@ -172,7 +269,15 @@ export function AbandonedCartsTable() {
   );
 }
 
-function Th({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+function Th({
+  children,
+  onClick,
+  className = "",
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+}) {
   return (
     <th
       className={`px-4 py-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium ${onClick ? "cursor-pointer hover:text-foreground" : ""} ${className}`}

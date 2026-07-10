@@ -11,15 +11,12 @@ export interface AdminUser {
   role: string;
 }
 
-export async function verifyAdminAccess(
-  accessToken: string,
-): Promise<AdminUser> {
+export async function verifyAdminAccess(accessToken: string): Promise<AdminUser> {
   if (!accessToken) {
     throw createError({ statusCode: 401, statusMessage: "Authentication required" });
   }
 
-  const { data: userResult, error: userError } =
-    await supabaseAdmin.auth.getUser(accessToken);
+  const { data: userResult, error: userError } = await supabaseAdmin.auth.getUser(accessToken);
   if (userError || !userResult.user) {
     throw createError({ statusCode: 401, statusMessage: "Invalid session" });
   }
@@ -99,10 +96,7 @@ async function getDashboardStatsFallback(): Promise<DashboardStats> {
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .eq("role", "customer"),
-    supabaseAdmin
-      .from("orders")
-      .select("total")
-      .eq("payment_status", "completed"),
+    supabaseAdmin.from("orders").select("total").eq("payment_status", "completed"),
   ]);
 
   const totalRevenue =
@@ -150,20 +144,18 @@ export async function getRecentOrders(params: {
   const { page, pageSize, search, sortBy = "created_at", sortDir = "desc" } = params;
   const offset = (page - 1) * pageSize;
 
-  const allowedSortColumns = new Set([
-    "created_at",
-    "total",
-    "status",
-    "order_number",
-  ]);
+  const allowedSortColumns = new Set(["created_at", "total", "status", "order_number"]);
   const safeSortBy = allowedSortColumns.has(sortBy) ? sortBy : "created_at";
   const safeSortDir = sortDir === "asc" ? "asc" : "desc";
 
   let query = supabaseAdmin
     .from("orders")
-    .select("id, order_number, total, status, payment_status, created_at, shipping_address, user_id", {
-      count: "exact",
-    });
+    .select(
+      "id, order_number, total, status, payment_status, created_at, shipping_address, user_id",
+      {
+        count: "exact",
+      },
+    );
 
   if (search) {
     const sanitized = search.replace(/[^a-zA-Z0-9 @._-]/g, "");
@@ -252,29 +244,38 @@ export async function getRecentCustomers(params: {
 
   const userIds = (data ?? []).map((row) => row.id);
 
-  const orderAggs = userIds.length > 0
-    ? await Promise.all(
-        userIds.map(async (uid) => {
-          const { count: orderCount } = await supabaseAdmin
-            .from("orders")
-            .select("*", { count: "exact", head: true })
-            .eq("user_id", uid);
-          const { data: spendData } = await supabaseAdmin
-            .from("orders")
-            .select("total")
-            .eq("user_id", uid)
-            .eq("payment_status", "completed");
-          const spend =
-            spendData?.reduce(
-              (sum: number, row: { total: number }) => sum + Number(row.total),
-              0,
-            ) ?? 0;
-          return { userId: uid, totalOrders: orderCount ?? 0, totalSpend: spend };
-        }),
-      )
-    : [];
+  const aggMap = new Map<string, { totalOrders: number; totalSpend: number }>();
+  if (userIds.length > 0) {
+    const [orderCounts, completedOrders] = await Promise.all([
+      supabaseAdmin
+        .from("orders")
+        .select("user_id", { count: "exact", head: false })
+        .in("user_id", userIds),
+      supabaseAdmin
+        .from("orders")
+        .select("user_id, total")
+        .in("user_id", userIds)
+        .eq("payment_status", "completed"),
+    ]);
 
-  const aggMap = new Map(orderAggs.map((a) => [a.userId, a]));
+    const countMap = new Map<string, number>();
+    for (const row of orderCounts.data ?? []) {
+      countMap.set(row.user_id, (countMap.get(row.user_id) ?? 0) + 1);
+    }
+
+    const spendMap = new Map<string, number>();
+    for (const row of completedOrders.data ?? []) {
+      const current = spendMap.get(row.user_id) ?? 0;
+      spendMap.set(row.user_id, current + Number(row.total));
+    }
+
+    for (const uid of userIds) {
+      aggMap.set(uid, {
+        totalOrders: countMap.get(uid) ?? 0,
+        totalSpend: spendMap.get(uid) ?? 0,
+      });
+    }
+  }
 
   const customers: CustomerRow[] = (data ?? []).map((row) => {
     const agg = aggMap.get(row.id);
@@ -329,13 +330,14 @@ export async function getLowStockProducts(
 
   const productIds = (productRows ?? []).map((p) => p.id);
 
-  const { data: variantRows } = productIds.length > 0
-    ? await supabaseAdmin
-        .from("product_variants")
-        .select("id, product_id, name, stock, attributes")
-        .eq("is_active", true)
-        .in("product_id", productIds)
-    : { data: [] };
+  const { data: variantRows } =
+    productIds.length > 0
+      ? await supabaseAdmin
+          .from("product_variants")
+          .select("id, product_id, name, stock, attributes")
+          .eq("is_active", true)
+          .in("product_id", productIds)
+      : { data: [] };
 
   const variantsByProduct = new Map<string, typeof variantRows>();
   for (const v of variantRows ?? []) {
@@ -378,11 +380,11 @@ export async function getLowStockProducts(
     }
   }
 
-  const outOfStock = allRows.filter(
-    (r) => r.variant_id !== null ? (r.variant_stock ?? 0) === 0 : r.stock === 0,
+  const outOfStock = allRows.filter((r) =>
+    r.variant_id !== null ? (r.variant_stock ?? 0) === 0 : r.stock === 0,
   );
-  const lowStock = allRows.filter(
-    (r) => r.variant_id !== null
+  const lowStock = allRows.filter((r) =>
+    r.variant_id !== null
       ? (r.variant_stock ?? 0) > 0 && (r.variant_stock ?? 0) <= safeThreshold
       : r.stock > 0 && r.stock <= safeThreshold,
   );

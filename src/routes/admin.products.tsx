@@ -17,7 +17,9 @@ function AdminProductsPage() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <p className="eyebrow">
-              <Link to="/admin" className="hover:text-foreground transition-colors">Admin</Link>
+              <Link to="/admin" className="hover:text-foreground transition-colors">
+                Admin
+              </Link>
             </p>
             <h1 className="font-serif text-4xl mt-2">Products</h1>
             <p className="text-sm text-muted-foreground mt-2 max-w-lg">

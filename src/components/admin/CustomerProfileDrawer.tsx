@@ -43,7 +43,12 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
   const { details, loading, error, refetch } = useCustomerDetails(userId);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <SheetContent className="sm:max-w-xl overflow-y-auto">
         <SheetHeader className="mb-6">
           <SheetTitle>Customer Profile</SheetTitle>
@@ -67,7 +72,9 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
         ) : error ? (
           <div className="border border-red/20 bg-red/5 p-4 text-center">
             <p className="text-sm text-red/80">{error}</p>
-            <button onClick={refetch} className="text-sm underline mt-2">Retry</button>
+            <button onClick={refetch} className="text-sm underline mt-2">
+              Retry
+            </button>
           </div>
         ) : !details ? (
           <p className="text-sm text-muted-foreground">Customer not found.</p>
@@ -89,7 +96,12 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
               </div>
               <div className="text-xs text-muted-foreground mt-2 space-y-1">
                 <p>Registered: {new Date(details.registration_date).toLocaleDateString()}</p>
-                <p>Last activity: {details.last_activity ? new Date(details.last_activity).toLocaleDateString() : "—"}</p>
+                <p>
+                  Last activity:{" "}
+                  {details.last_activity
+                    ? new Date(details.last_activity).toLocaleDateString()
+                    : "—"}
+                </p>
               </div>
             </div>
 
@@ -100,12 +112,20 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
                 <p className="text-xl font-bold mt-1">{details.orders_count}</p>
               </div>
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Spent</p>
-                <p className="text-xl font-bold mt-1">${Number(details.total_spent).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Total Spent
+                </p>
+                <p className="text-xl font-bold mt-1">
+                  ${Number(details.total_spent).toLocaleString()}
+                </p>
               </div>
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg Order Value</p>
-                <p className="text-xl font-bold mt-1">${Number(details.avg_order_value).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Avg Order Value
+                </p>
+                <p className="text-xl font-bold mt-1">
+                  ${Number(details.avg_order_value).toLocaleString()}
+                </p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Last Order</p>
@@ -165,11 +185,25 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
                 <div className="space-y-2">
                   {details.addresses.map((addr) => (
                     <div key={addr.id} className="rounded-md border p-3 text-sm">
-                      {addr.label && <p className="font-medium text-xs uppercase text-muted-foreground">{addr.label}</p>}
-                      <p>{addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}</p>
-                      <p>{addr.city}{addr.state ? `, ${addr.state}` : ""} {addr.postal_code}</p>
+                      {addr.label && (
+                        <p className="font-medium text-xs uppercase text-muted-foreground">
+                          {addr.label}
+                        </p>
+                      )}
+                      <p>
+                        {addr.line1}
+                        {addr.line2 ? `, ${addr.line2}` : ""}
+                      </p>
+                      <p>
+                        {addr.city}
+                        {addr.state ? `, ${addr.state}` : ""} {addr.postal_code}
+                      </p>
                       <p>{addr.country}</p>
-                      {addr.is_default && <Badge variant="outline" className="mt-1 text-[10px]">Default</Badge>}
+                      {addr.is_default && (
+                        <Badge variant="outline" className="mt-1 text-[10px]">
+                          Default
+                        </Badge>
+                      )}
                     </div>
                   ))}
                 </div>

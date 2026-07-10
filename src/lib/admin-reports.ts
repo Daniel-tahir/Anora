@@ -71,7 +71,9 @@ export function useRevenueReport(startDate?: string, endDate?: string) {
     }
   }, [startDate, endDate]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 
@@ -96,7 +98,9 @@ export function useFinancialReport(startDate?: string, endDate?: string) {
     }
   }, [startDate, endDate]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 
@@ -121,7 +125,9 @@ export function useCustomerReport(startDate?: string, endDate?: string) {
     }
   }, [startDate, endDate]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 
@@ -143,7 +149,9 @@ export function useInventoryReport() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 

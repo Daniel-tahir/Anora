@@ -37,7 +37,9 @@ const bestItems = products.filter((p) => p.badge === "Best Seller");
 const unbadged = products.filter((p) => !p.badge);
 
 const displayNew =
-  newItems.length >= 3 ? newItems : [...newItems, ...unbadged.slice(0, 3 - newItems.length)].slice(0, 3);
+  newItems.length >= 3
+    ? newItems
+    : [...newItems, ...unbadged.slice(0, 3 - newItems.length)].slice(0, 3);
 
 const displayBest =
   bestItems.length >= 3
@@ -147,7 +149,10 @@ function Home() {
               <span className="eyebrow">New Arrivals</span>
               <h2 className="mt-3 font-serif text-4xl md:text-5xl">The Spring Edit</h2>
             </div>
-            <Link to="/shop" className="hidden sm:inline text-[11px] tracking-[0.32em] uppercase hover-underline">
+            <Link
+              to="/shop"
+              className="hidden sm:inline text-[11px] tracking-[0.32em] uppercase hover-underline"
+            >
               View All
             </Link>
           </div>
@@ -172,7 +177,10 @@ function Home() {
               <span className="eyebrow">Best Sellers</span>
               <h2 className="mt-3 font-serif text-4xl md:text-5xl">Most cherished pieces</h2>
             </div>
-            <Link to="/shop" className="hidden sm:inline text-[11px] tracking-[0.32em] uppercase hover-underline">
+            <Link
+              to="/shop"
+              className="hidden sm:inline text-[11px] tracking-[0.32em] uppercase hover-underline"
+            >
               View All
             </Link>
           </div>

@@ -107,7 +107,9 @@ export function useGiftCardsManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, statusFilter]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -132,7 +134,9 @@ export function useGiftCardDetails(giftCardId: string | null) {
     }
   }, [giftCardId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { details, loading, error, refetch: load };
 }
 
@@ -154,7 +158,9 @@ export function useGiftCardAnalytics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 

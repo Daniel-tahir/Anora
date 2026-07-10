@@ -1,31 +1,245 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useRef, useState, useEffect } from "react";
 import { ProtectedRoute, useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { createStripeCheckoutSession } from "@/lib/payments";
+import { z } from "zod";
+import {
+  createPaymentIntent,
+  createPayPalOrder,
+  createOrder,
+  createCheckoutRequestId,
+  getStripePublishableKey,
+} from "@/lib/payments";
+import { PaymentMethodList } from "@/components/payment/PaymentMethodList";
+import { StripePayment } from "@/components/payment/StripePayment";
+import { PayPalPayment } from "@/components/payment/PayPalPayment";
+import { type PaymentMethodId } from "@/components/payment/payment-types";
 
 export const Route = createFileRoute("/checkout")({
+  validateSearch: (search: Record<string, string | undefined>) => ({
+    success: search.success,
+    canceled: search.canceled,
+    payment_intent: search.payment_intent,
+    redirect_status: search.redirect_status,
+  }),
   head: () => ({ meta: [{ title: "Checkout — ANORA" }] }),
   component: CheckoutPage,
 });
 
-function Checkout() {
+export function CheckoutForm() {
   const cart = useCart();
   const { user } = useAuth();
-  const [payment, setPayment] = useState("card");
+  const navigate = useNavigate();
+  const { success, canceled, payment_intent, redirect_status } = Route.useSearch();
   const [billingSame, setBillingSame] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodId>("stripe");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripeKey, setStripeKey] = useState<string | null>(null);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+  const submitLock = useRef(false);
+  const checkoutRequestId = useRef(createCheckoutRequestId());
 
-  // ─── Checkout lock token ───────────────────────────────────
-  // Generated once per page mount. Sent to server to lock the
-  // cart state. Any cart change before submit invalidates it.
-  const checkoutSessionToken = useRef(crypto.randomUUID()).current;
-  const cartSnapshot = useRef(JSON.stringify(cart.items)).current;
+  const cardConfirmRef = useRef<
+    | ((
+        cs: string,
+        ret: string,
+      ) => Promise<{
+        error?: { message?: string };
+        paymentIntent?: { id: string; status: string };
+      }>)
+    | null
+  >(null);
+  const orderAttempted = useRef(false);
+  const effectRunCount = useRef(0);
+
+  useEffect(() => {
+    const key = getStripePublishableKey();
+    if (key) setStripeKey(key);
+  }, []);
+
+  const [orderCreating, setOrderCreating] = useState(false);
+
+  useEffect(() => {
+    effectRunCount.current += 1;
+    console.log("[TRACE A] success useEffect RUNNING", {
+      runCount: effectRunCount.current,
+      success,
+      payment_intent,
+      redirect_status,
+      orderAttempted: orderAttempted.current,
+      orderCreating,
+    });
+
+    if (
+      success === "1" &&
+      payment_intent &&
+      redirect_status === "succeeded" &&
+      !orderAttempted.current
+    ) {
+      console.log("[TRACE B] success condition MET — proceeding with order creation");
+      orderAttempted.current = true;
+      setOrderCreating(true);
+
+      supabase.auth.getSession().then(async ({ data: sessionData }) => {
+        console.log("[TRACE C] getSession result:", {
+          hasSession: !!sessionData.session,
+          accessTokenPrefix: sessionData.session?.access_token?.slice(0, 10),
+        });
+
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          console.log("[TRACE C2] No access token — navigating to /login");
+          navigate({ to: "/login" });
+          return;
+        }
+
+        try {
+          console.log("[TRACE D] calling createOrder", { paymentIntentId: payment_intent });
+          const order = await createOrder({
+            data: { paymentIntentId: payment_intent, accessToken },
+          });
+          console.log("[TRACE E] createOrder returned:", order);
+
+          if (order.success) {
+            console.log("[TRACE F] order created OK — clearing cart, navigating to /order/success");
+            cart.clear();
+            navigate({
+              to: "/order/success",
+              search: {
+                orderNumber: order.orderNumber ?? "",
+                invoiceNumber: order.invoiceNumber ?? "",
+                orderId: order.orderId ?? "",
+              },
+            });
+          } else {
+            console.log("[TRACE G] order creation FAILED:", order.error);
+            toast.error(order.error ?? "Order could not be created. Please contact support.");
+            setOrderCreating(false);
+          }
+        } catch (err) {
+          console.log("[TRACE H] createOrder threw:", err instanceof Error ? err.stack : err);
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Order could not be created. Please contact support.",
+          );
+          setOrderCreating(false);
+        }
+      });
+    } else {
+      console.log("[TRACE I] success condition NOT MET", {
+        successEq1: success === "1",
+        hasPaymentIntent: !!payment_intent,
+        redirectStatusSucceeded: redirect_status === "succeeded",
+        notAttempted: !orderAttempted.current,
+      });
+    }
+  }, [success, payment_intent, redirect_status, navigate, orderCreating, cart]);
+
+  useEffect(() => {
+    if (success === "1" && !payment_intent) {
+      navigate({
+        to: "/order/success",
+        search: { orderNumber: "", invoiceNumber: "", orderId: "" },
+      });
+    }
+  }, [success, payment_intent, navigate]);
+
+  useEffect(() => {
+    if (selectedMethod !== "stripe") return;
+    // Reset state when switching back to Stripe
+    if (clientSecret || stripeError) {
+      setClientSecret(null);
+      setStripeError(null);
+    }
+  }, [selectedMethod, clientSecret, stripeError]);
+
+  useEffect(() => {
+    if (selectedMethod !== "stripe") return;
+    if (clientSecret || stripeError) return;
+    if (cart.items.length === 0) return;
+
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      createPaymentIntent({
+        data: {
+          accessToken: token,
+          email: user?.email ?? "",
+          items: cart.items.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId ?? null,
+            size: item.size,
+            quantity: item.quantity,
+          })),
+          shippingAddress: {
+            firstName: "",
+            lastName: "",
+            line1: "",
+            line2: "",
+            city: "",
+            state: "",
+            postalCode: "",
+            country: "US",
+            phone: "",
+          },
+          checkoutRequestId: checkoutRequestId.current,
+          idempotencyKey: `prefetch-${checkoutRequestId.current}`,
+        },
+      })
+        .then((result) => {
+          setClientSecret(result.clientSecret);
+        })
+        .catch((err) => {
+          setStripeError(err instanceof Error ? err.message : "Failed to initialize payment");
+        });
+    });
+  }, [selectedMethod, clientSecret, stripeError, cart.items, user?.email]);
+
+  useEffect(() => {
+    console.log("[TRACE MOUNT] CheckoutForm mounted", {
+      success,
+      canceled,
+      payment_intent,
+      redirect_status,
+      itemCount: cart.items.length,
+      subtotal: cart.subtotal,
+      hasUser: !!user,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const shipping = 0;
-  const total = cart.subtotal + shipping;
+  const total = cart.subtotal;
+
+  if (success === "1" && orderCreating) {
+    return (
+      <div className="px-6 py-24 text-center max-w-md mx-auto">
+        <h1 className="font-serif text-4xl">Payment Successful</h1>
+        <p className="text-muted-foreground mt-4">Creating your order...</p>
+      </div>
+    );
+  }
+
+  if (canceled === "1") {
+    return (
+      <div className="px-6 py-24 text-center max-w-md mx-auto">
+        <h1 className="font-serif text-4xl">Payment Canceled</h1>
+        <p className="text-muted-foreground mt-4">
+          Your payment was not completed. Your cart items are still saved.
+        </p>
+        <Link
+          to="/checkout"
+          className="mt-8 inline-block text-[11px] tracking-[0.32em] uppercase hover-underline"
+        >
+          Try Again
+        </Link>
+      </div>
+    );
+  }
 
   if (cart.detailed.length === 0) {
     return (
@@ -55,38 +269,38 @@ function Checkout() {
             toast.error("Please sign in to complete checkout");
             return;
           }
+          if (submitLock.current) return;
+          submitLock.current = true;
+          setSubmitting(true);
 
-          // Read form data synchronously BEFORE any await — after the first
-          // await, React's synthetic event sets currentTarget to null, causing
-          // "Cannot read properties of null (reading 'elements')".
           const form = e.currentTarget;
           const val = (name: string) =>
             (form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "";
 
-          setSubmitting(true);
-          try {
-            const { data } = await supabase.auth.getSession();
-            const accessToken = data.session?.access_token;
-            if (!accessToken) {
-              throw new Error("Your session expired. Please sign in again.");
-            }
+          const email = val("email");
+          const emailResult = z.string().email().safeParse(email);
+          if (!emailResult.success) {
+            toast.error("Please enter a valid email address");
+            setSubmitting(false);
+            submitLock.current = false;
+            return;
+          }
 
-            if (JSON.stringify(cart.items) !== cartSnapshot) {
-              toast.error("Your bag has changed. Please review before checking out.");
-              setSubmitting(false);
-              return;
-            }
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (!accessToken) {
+            toast.error("Your session expired. Please sign in again.");
+            setSubmitting(false);
+            submitLock.current = false;
+            return;
+          }
 
-            if (payment === "cod") {
-              const response = await fetch("/api/checkout/cod", {
-                method: "POST",
-                headers: {
-                  "content-type": "application/json",
-                  authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify({
-                  email: user.email ?? "",
-                  checkoutSessionToken,
+          if (selectedMethod === "paypal") {
+            try {
+              const result = await createPayPalOrder({
+                data: {
+                  accessToken,
+                  email,
                   items: cart.items.map((item) => ({
                     productId: item.productId,
                     variantId: item.variantId ?? null,
@@ -97,7 +311,9 @@ function Checkout() {
                     firstName: val("firstName"),
                     lastName: val("lastName"),
                     line1: val("address"),
+                    line2: val("address2"),
                     city: val("city"),
+                    state: val("state"),
                     postalCode: val("postalCode"),
                     country: val("country"),
                     phone: val("phone"),
@@ -105,66 +321,155 @@ function Checkout() {
                   billingAddress: billingSame
                     ? undefined
                     : {
+                        firstName: val("firstName"),
+                        lastName: val("lastName"),
                         line1: val("billingAddress"),
+                        line2: "",
                         city: val("billingCity"),
+                        state: "",
                         postalCode: val("billingPostalCode"),
                         country: val("billingCountry"),
+                        phone: val("phone"),
                       },
-                }),
+                },
               });
-
-              if (!response.ok) {
-                throw new Error(await response.text());
-              }
-
-              const codResult = (await response.json()) as {
-                orderId: string;
-                orderNumber: string;
-                checkoutUrl: string;
-              };
-              cart.clear();
-              toast.success(`Order ${codResult.orderNumber} placed!`, {
-                description: "You'll pay upon delivery. We'll contact you with updates.",
+              window.location.assign(result.approveUrl);
+            } catch (error) {
+              toast.error("Checkout could not start", {
+                description: error instanceof Error ? error.message : "Please try again.",
               });
-              window.location.assign(codResult.checkoutUrl);
-              return;
+              setSubmitting(false);
+              submitLock.current = false;
             }
+            return;
+          }
 
-            const result = await createStripeCheckoutSession({
-              accessToken,
-              email: user.email ?? "",
-              items: cart.items.map((item) => ({
-                productId: item.productId,
-                variantId: item.variantId ?? null,
-                size: item.size,
-                quantity: item.quantity,
-              })),
-              shippingAddress: {
-                firstName: val("firstName"),
-                lastName: val("lastName"),
-                line1: val("address"),
-                city: val("city"),
-                postalCode: val("postalCode"),
-                country: val("country"),
-                phone: val("phone"),
+          const requestId = checkoutRequestId.current;
+          console.log("[TRACE 1] CHECKOUT SUBMIT", {
+            email,
+            requestId,
+            itemCount: cart.items.length,
+            method: selectedMethod,
+          });
+          try {
+            const piResult = await createPaymentIntent({
+              data: {
+                accessToken,
+                email,
+                items: cart.items.map((item) => ({
+                  productId: item.productId,
+                  variantId: item.variantId ?? null,
+                  size: item.size,
+                  quantity: item.quantity,
+                })),
+                shippingAddress: {
+                  firstName: val("firstName"),
+                  lastName: val("lastName"),
+                  line1: val("address"),
+                  line2: val("address2"),
+                  city: val("city"),
+                  state: val("state"),
+                  postalCode: val("postalCode"),
+                  country: val("country"),
+                  phone: val("phone"),
+                },
+                billingAddress: billingSame
+                  ? undefined
+                  : {
+                      firstName: val("firstName"),
+                      lastName: val("lastName"),
+                      line1: val("billingAddress"),
+                      line2: "",
+                      city: val("billingCity"),
+                      state: "",
+                      postalCode: val("billingPostalCode"),
+                      country: val("billingCountry"),
+                      phone: val("phone"),
+                    },
+                checkoutRequestId: requestId,
+                idempotencyKey: requestId,
               },
-              billingAddress: billingSame
-                ? undefined
-                : {
-                    line1: val("billingAddress"),
-                    city: val("billingCity"),
-                    postalCode: val("billingPostalCode"),
-                    country: val("billingCountry"),
-                  },
             });
 
-            window.location.assign(result.checkoutUrl);
+            if (cardConfirmRef.current) {
+              const returnUrl = `${window.location.origin}/checkout?success=1`;
+              const confirmResult = await cardConfirmRef.current(piResult.clientSecret, returnUrl);
+
+              console.log("[TRACE 2] confirmPayment result:", {
+                paymentIntentId: confirmResult.paymentIntent?.id,
+                status: confirmResult.paymentIntent?.status,
+                error: confirmResult.error?.message,
+              });
+              if (confirmResult.error) {
+                toast.error(confirmResult.error.message ?? "Payment could not be processed.");
+                setSubmitting(false);
+                submitLock.current = false;
+              } else if (confirmResult.paymentIntent) {
+                console.log("[TRACE 3] about to call createOrder", {
+                  paymentIntentId: confirmResult.paymentIntent.id,
+                  checkoutRequestId: requestId,
+                  email,
+                });
+                // Non-3DS: create order inline, then navigate directly to success page
+                setOrderCreating(true);
+                try {
+                  const order = await createOrder({
+                    data: { paymentIntentId: confirmResult.paymentIntent.id, accessToken },
+                  });
+                  console.log("[TRACE 4] createOrder returned:", {
+                    success: order.success,
+                    error: order.error,
+                    orderNumber: order.orderNumber,
+                    invoiceNumber: order.invoiceNumber,
+                    orderId: order.orderId,
+                  });
+                  if (order.success) {
+                    cart.clear();
+                    navigate({
+                      to: "/order/success",
+                      search: {
+                        orderNumber: order.orderNumber ?? "",
+                        invoiceNumber: order.invoiceNumber ?? "",
+                        orderId: order.orderId ?? "",
+                      },
+                    });
+                  } else {
+                    toast.error(
+                      order.error ?? "Order could not be created. Please contact support.",
+                    );
+                    setSubmitting(false);
+                    submitLock.current = false;
+                  }
+                } catch (err) {
+                  console.log(
+                    "[TRACE 5] createOrder threw:",
+                    err instanceof Error ? err.stack : err,
+                  );
+                  toast.error(
+                    err instanceof Error
+                      ? err.message
+                      : "Order could not be created. Please contact support.",
+                  );
+                  setSubmitting(false);
+                  submitLock.current = false;
+                }
+                return;
+              }
+            } else {
+              toast.error("Payment system not ready. Please refresh.");
+              setSubmitting(false);
+              submitLock.current = false;
+            }
           } catch (error) {
+            console.log(
+              "[TRACE 5b] outer catch (createPaymentIntent/confirmPayment threw):",
+              error instanceof Error ? error.stack : error,
+            );
             toast.error("Checkout could not start", {
               description: error instanceof Error ? error.message : "Please try again.",
             });
-          } finally {
             setSubmitting(false);
+            submitLock.current = false;
           }
         }}
         className="grid lg:grid-cols-[1fr_360px] gap-12"
@@ -187,11 +492,13 @@ function Checkout() {
               <Input label="Last name" name="lastName" required />
             </div>
             <Input label="Address" name="address" required />
+            <Input label="Apartment, suite, etc." name="address2" />
             <div className="grid sm:grid-cols-3 gap-4">
               <Input label="City" name="city" required />
+              <Input label="State" name="state" />
               <Input label="Postal code" name="postalCode" required />
-              <Input label="Country" name="country" required defaultValue="United States" />
             </div>
+            <Input label="Country" name="country" required defaultValue="United States" />
           </Section>
 
           <Section title="Billing Address">
@@ -216,36 +523,37 @@ function Checkout() {
             )}
           </Section>
 
-          <Section title="Payment Method">
-            <div className="grid sm:grid-cols-2 gap-3">
-              {[
-                { id: "card", label: "Credit Card" },
-                { id: "paypal", label: "PayPal" },
-                { id: "stripe", label: "Stripe" },
-                { id: "cod", label: "Cash on Delivery" },
-              ].map((m) => (
-                <button
-                  type="button"
-                  key={m.id}
-                  onClick={() => setPayment(m.id)}
-                  className={`text-left px-5 py-4 border text-sm transition-colors ${
-                    payment === m.id ? "border-foreground" : "border-border hover:border-foreground"
-                  }`}
-                >
-                  <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
-                    Method
-                  </span>
-                  <span className="font-serif text-lg">{m.label}</span>
-                </button>
-              ))}
-            </div>
-            {payment === "card" && (
-              <div className="mt-5 space-y-4">
-                <Input label="Card number" placeholder="•••• •••• •••• ••••" required />
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Expiry" placeholder="MM / YY" required />
-                  <Input label="CVC" required />
-                </div>
+          <Section title="Choose Payment Method">
+            <PaymentMethodList
+              methods={["stripe", "paypal"]}
+              selected={selectedMethod}
+              onSelect={setSelectedMethod}
+              disabled={submitting}
+            />
+
+            {selectedMethod === "stripe" && (
+              <div className="mt-5">
+                {stripeError && <p className="text-red-500 text-sm mb-3">{stripeError}</p>}
+                {!clientSecret && !stripeError && (
+                  <div className="text-sm text-muted-foreground py-4">Loading payment form...</div>
+                )}
+                {clientSecret && stripeKey && (
+                  <StripePayment
+                    stripeKey={stripeKey}
+                    clientSecret={clientSecret}
+                    items={cart.items}
+                    onConfirmReady={(fn) => {
+                      cardConfirmRef.current = fn;
+                    }}
+                    checkoutRequestId={checkoutRequestId.current}
+                  />
+                )}
+              </div>
+            )}
+
+            {selectedMethod === "paypal" && (
+              <div className="mt-5">
+                <PayPalPayment />
               </div>
             )}
           </Section>
@@ -278,14 +586,12 @@ function Checkout() {
             <div className="h-px bg-border my-5" />
             <Row label="Total" value={`$${total}`} bold />
             <button
+              type="submit"
               disabled={submitting}
               className="mt-6 w-full bg-foreground text-background py-4 text-[11px] tracking-[0.32em] uppercase hover:bg-gold hover:text-ink transition-colors disabled:opacity-60"
             >
-              {submitting ? "Redirecting" : "Place Order"}
+              {submitting ? "Processing Payment..." : "Place Order"}
             </button>
-            <p className="mt-3 text-[11px] text-center text-muted-foreground">
-              By placing your order you agree to our Terms.
-            </p>
           </div>
         </aside>
       </form>
@@ -334,7 +640,7 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
 function CheckoutPage() {
   return (
     <ProtectedRoute>
-      <Checkout />
+      <CheckoutForm />
     </ProtectedRoute>
   );
 }

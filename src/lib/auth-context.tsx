@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, useRef, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "./supabase";
 import type { User, AuthError } from "@supabase/supabase-js";
@@ -9,8 +17,17 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string, remember?: boolean) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: AuthError | null; needsConfirmation: boolean }>;
+  signIn: (
+    email: string,
+    password: string,
+    remember?: boolean,
+  ) => Promise<{ error: AuthError | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+  ) => Promise<{ error: AuthError | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   backToStore: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -105,7 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
@@ -133,15 +152,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!error && data.user) {
-      await supabase.from("profiles").upsert(
-        {
-          id: data.user.id,
-          email,
-          first_name: firstName,
-          last_name: lastName,
-        },
-        { onConflict: "id" },
-      ).maybeSingle();
+      await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: data.user.id,
+            email,
+            first_name: firstName,
+            last_name: lastName,
+          },
+          { onConflict: "id" },
+        )
+        .maybeSingle();
     }
 
     const needsConfirmation = !!data?.user?.identities && data.user.identities.length === 0;
@@ -166,7 +188,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     setUser(user);
     if (user) {
       const role = await fetchAdminRole(user.id);
@@ -175,7 +199,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, signIn, signUp, signOut, backToStore, resetPassword, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isAdmin,
+        signIn,
+        signUp,
+        signOut,
+        backToStore,
+        resetPassword,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -193,7 +229,10 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: "/login", search: { redirectTo: window.location.pathname, confirmed: undefined } });
+      navigate({
+        to: "/login",
+        search: { redirectTo: window.location.pathname, confirmed: undefined },
+      });
     }
   }, [user, loading, navigate]);
 

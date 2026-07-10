@@ -1,22 +1,41 @@
 import { useState } from "react";
-import { useRevenueReport, useFinancialReport, useCustomerReport, useInventoryReport } from "@/lib/admin-reports";
+import {
+  useRevenueReport,
+  useFinancialReport,
+  useCustomerReport,
+  useInventoryReport,
+} from "@/lib/admin-reports";
 import { DashboardCard } from "@/components/admin/DashboardCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { exportCSV, exportExcel, exportPDF } from "@/lib/admin-export";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  AreaChart,
+  Area,
+} from "recharts";
 import { Download, TrendingUp, Users, Package, DollarSign } from "lucide-react";
 
 export function ReportsDashboard() {
-  const [activeTab, setActiveTab] = useState<"sales" | "finance" | "customers" | "inventory">("sales");
+  const [activeTab, setActiveTab] = useState<"sales" | "finance" | "customers" | "inventory">(
+    "sales",
+  );
   const [dateRange, setDateRange] = useState("30days");
-  const startDate = dateRange === "30days"
-    ? new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]
-    : dateRange === "90days"
-    ? new Date(Date.now() - 90 * 86400000).toISOString().split("T")[0]
-    : dateRange === "1year"
-    ? new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0]
-    : undefined;
+  const startDate =
+    dateRange === "30days"
+      ? new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]
+      : dateRange === "90days"
+        ? new Date(Date.now() - 90 * 86400000).toISOString().split("T")[0]
+        : dateRange === "1year"
+          ? new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0]
+          : undefined;
   const endDate = new Date().toISOString().split("T")[0];
 
   return (
@@ -40,7 +59,13 @@ export function ReportsDashboard() {
                 : "border border-border/60 text-muted-foreground hover:border-foreground/30"
             }`}
           >
-            {tab === "sales" ? "Sales" : tab === "finance" ? "Finance" : tab === "customers" ? "Customers" : "Inventory"}
+            {tab === "sales"
+              ? "Sales"
+              : tab === "finance"
+                ? "Finance"
+                : tab === "customers"
+                  ? "Customers"
+                  : "Inventory"}
           </button>
         ))}
       </div>
@@ -72,8 +97,15 @@ export function ReportsDashboard() {
 function SalesReports({ startDate, endDate }: { startDate?: string; endDate?: string }) {
   const { data, loading } = useRevenueReport(startDate, endDate);
 
-  if (loading) return <div className="space-y-4"><Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" /></div>;
-  if (!data) return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
+  if (loading)
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  if (!data)
+    return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
 
   const dailyData = (data.daily || []).map((d: any) => ({
     ...d,
@@ -83,11 +115,31 @@ function SalesReports({ startDate, endDate }: { startDate?: string; endDate?: st
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <DashboardCard label="Gross Revenue" value={`$${Number(data.totalGrossRevenue).toLocaleString()}`} icon={<DollarSign className="h-4 w-4" />} />
-        <DashboardCard label="Net Revenue" value={`$${Number(data.totalNetRevenue).toLocaleString()}`} icon={<TrendingUp className="h-4 w-4" />} />
-        <DashboardCard label="Taxes" value={`$${Number(data.totalTaxes).toLocaleString()}`} icon={<DollarSign className="h-4 w-4" />} />
-        <DashboardCard label="Discounts" value={`$${Number(data.totalDiscounts).toLocaleString()}`} icon={<DollarSign className="h-4 w-4" />} />
-        <DashboardCard label="Orders" value={data.totalOrders.toLocaleString()} icon={<Package className="h-4 w-4" />} />
+        <DashboardCard
+          label="Gross Revenue"
+          value={`$${Number(data.totalGrossRevenue).toLocaleString()}`}
+          icon={<DollarSign className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Net Revenue"
+          value={`$${Number(data.totalNetRevenue).toLocaleString()}`}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Taxes"
+          value={`$${Number(data.totalTaxes).toLocaleString()}`}
+          icon={<DollarSign className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Discounts"
+          value={`$${Number(data.totalDiscounts).toLocaleString()}`}
+          icon={<DollarSign className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Orders"
+          value={data.totalOrders.toLocaleString()}
+          icon={<Package className="h-4 w-4" />}
+        />
       </div>
 
       <div className="border border-border/60 p-6 mb-6">
@@ -105,33 +157,67 @@ function SalesReports({ startDate, endDate }: { startDate?: string; endDate?: st
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No sales data</div>
+          <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+            No sales data
+          </div>
         )}
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => {
-          const rows = (data.daily || []).map((d: any) => [d.date, d.grossRevenue, d.netRevenue, d.taxes, d.discounts, d.orders]);
-          exportPDF("Sales Report", ["Date", "Gross Revenue", "Net Revenue", "Taxes", "Discounts", "Orders"], rows, `sales-report-${endDate}`);
-        }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const rows = (data.daily || []).map((d: any) => [
+              d.date,
+              d.grossRevenue,
+              d.netRevenue,
+              d.taxes,
+              d.discounts,
+              d.orders,
+            ]);
+            exportPDF(
+              "Sales Report",
+              ["Date", "Gross Revenue", "Net Revenue", "Taxes", "Discounts", "Orders"],
+              rows,
+              `sales-report-${endDate}`,
+            );
+          }}
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
         </Button>
-        <Button variant="outline" size="sm" onClick={() => {
-          const csvData = (data.daily || []).map((d: any) => ({
-            Date: d.date, "Gross Revenue": d.grossRevenue, "Net Revenue": d.netRevenue,
-            Taxes: d.taxes, Discounts: d.discounts, Orders: d.orders,
-          }));
-          exportCSV(csvData, `sales-report-${endDate}`);
-        }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const csvData = (data.daily || []).map((d: any) => ({
+              Date: d.date,
+              "Gross Revenue": d.grossRevenue,
+              "Net Revenue": d.netRevenue,
+              Taxes: d.taxes,
+              Discounts: d.discounts,
+              Orders: d.orders,
+            }));
+            exportCSV(csvData, `sales-report-${endDate}`);
+          }}
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
         </Button>
-        <Button variant="outline" size="sm" onClick={() => {
-          const excelData = (data.daily || []).map((d: any) => ({
-            Date: d.date, GrossRevenue: d.grossRevenue, NetRevenue: d.netRevenue,
-            Taxes: d.taxes, Discounts: d.discounts, Orders: d.orders,
-          }));
-          exportExcel(excelData, `sales-report-${endDate}`, "Sales");
-        }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const excelData = (data.daily || []).map((d: any) => ({
+              Date: d.date,
+              GrossRevenue: d.grossRevenue,
+              NetRevenue: d.netRevenue,
+              Taxes: d.taxes,
+              Discounts: d.discounts,
+              Orders: d.orders,
+            }));
+            exportExcel(excelData, `sales-report-${endDate}`, "Sales");
+          }}
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> Excel
         </Button>
       </div>
@@ -143,7 +229,8 @@ function FinanceReports({ startDate, endDate }: { startDate?: string; endDate?: 
   const { data, loading } = useFinancialReport(startDate, endDate);
 
   if (loading) return <Skeleton className="h-48 w-full" />;
-  if (!data) return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
+  if (!data)
+    return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
 
   const dailyData = (data.daily || []).map((d: any) => ({
     ...d,
@@ -154,8 +241,14 @@ function FinanceReports({ startDate, endDate }: { startDate?: string; endDate?: 
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <DashboardCard label="Total Taxes" value={`$${Number(data.totalTaxes).toLocaleString()}`} />
-        <DashboardCard label="Total Discounts" value={`$${Number(data.totalDiscounts).toLocaleString()}`} />
-        <DashboardCard label="Total Refunds" value={`$${Number(data.totalRefunds).toLocaleString()}`} />
+        <DashboardCard
+          label="Total Discounts"
+          value={`$${Number(data.totalDiscounts).toLocaleString()}`}
+        />
+        <DashboardCard
+          label="Total Refunds"
+          value={`$${Number(data.totalRefunds).toLocaleString()}`}
+        />
       </div>
 
       <div className="border border-border/60 p-6 mb-6">
@@ -168,37 +261,88 @@ function FinanceReports({ startDate, endDate }: { startDate?: string; endDate?: 
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip />
               <Legend />
-              <Area type="monotone" dataKey="taxes" stroke="hsl(var(--foreground))" fill="hsl(var(--foreground))" fillOpacity={0.1} name="Taxes" />
-              <Area type="monotone" dataKey="discounts" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.1} name="Discounts" />
-              <Area type="monotone" dataKey="refunds" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} name="Refunds" />
+              <Area
+                type="monotone"
+                dataKey="taxes"
+                stroke="hsl(var(--foreground))"
+                fill="hsl(var(--foreground))"
+                fillOpacity={0.1}
+                name="Taxes"
+              />
+              <Area
+                type="monotone"
+                dataKey="discounts"
+                stroke="#f59e0b"
+                fill="#f59e0b"
+                fillOpacity={0.1}
+                name="Discounts"
+              />
+              <Area
+                type="monotone"
+                dataKey="refunds"
+                stroke="#ef4444"
+                fill="#ef4444"
+                fillOpacity={0.1}
+                name="Refunds"
+              />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No financial data</div>
+          <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+            No financial data
+          </div>
         )}
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => {
-          const rows = (data.daily || []).map((d: any) => [d.date, d.taxes, d.discounts, d.refunds]);
-          exportPDF("Financial Report", ["Date", "Taxes", "Discounts", "Refunds"], rows, `finance-report-${endDate}`);
-        }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const rows = (data.daily || []).map((d: any) => [
+              d.date,
+              d.taxes,
+              d.discounts,
+              d.refunds,
+            ]);
+            exportPDF(
+              "Financial Report",
+              ["Date", "Taxes", "Discounts", "Refunds"],
+              rows,
+              `finance-report-${endDate}`,
+            );
+          }}
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
         </Button>
-        <Button variant="outline" size="sm" onClick={() => {
-          const csvData = (data.daily || []).map((d: any) => ({
-            Date: d.date, Taxes: d.taxes, Discounts: d.discounts, Refunds: d.refunds,
-          }));
-          exportCSV(csvData, `finance-report-${endDate}`);
-        }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const csvData = (data.daily || []).map((d: any) => ({
+              Date: d.date,
+              Taxes: d.taxes,
+              Discounts: d.discounts,
+              Refunds: d.refunds,
+            }));
+            exportCSV(csvData, `finance-report-${endDate}`);
+          }}
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
         </Button>
-        <Button variant="outline" size="sm" onClick={() => {
-          const excelData = (data.daily || []).map((d: any) => ({
-            Date: d.date, Taxes: d.taxes, Discounts: d.discounts, Refunds: d.refunds,
-          }));
-          exportExcel(excelData, `finance-report-${endDate}`, "Finance");
-        }}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const excelData = (data.daily || []).map((d: any) => ({
+              Date: d.date,
+              Taxes: d.taxes,
+              Discounts: d.discounts,
+              Refunds: d.refunds,
+            }));
+            exportExcel(excelData, `finance-report-${endDate}`, "Finance");
+          }}
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> Excel
         </Button>
       </div>
@@ -210,7 +354,8 @@ function CustomerReports({ startDate, endDate }: { startDate?: string; endDate?:
   const { data, loading } = useCustomerReport(startDate, endDate);
 
   if (loading) return <Skeleton className="h-48 w-full" />;
-  if (!data) return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
+  if (!data)
+    return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
 
   const rows = [
     ["New Customers", data.newCustomers.toLocaleString()],
@@ -223,18 +368,58 @@ function CustomerReports({ startDate, endDate }: { startDate?: string; endDate?:
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <DashboardCard label="New Customers" value={data.newCustomers.toLocaleString()} icon={<Users className="h-4 w-4" />} />
-        <DashboardCard label="Returning" value={data.returningCustomers.toLocaleString()} icon={<Users className="h-4 w-4" />} />
-        <DashboardCard label="VIP" value={data.vipCustomers.toLocaleString()} icon={<Users className="h-4 w-4" />} />
-        <DashboardCard label="Total" value={data.totalCustomers.toLocaleString()} icon={<Users className="h-4 w-4" />} />
-        <DashboardCard label="Avg LTV" value={`$${Number(data.averageLifetimeValue).toFixed(2)}`} icon={<TrendingUp className="h-4 w-4" />} />
+        <DashboardCard
+          label="New Customers"
+          value={data.newCustomers.toLocaleString()}
+          icon={<Users className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Returning"
+          value={data.returningCustomers.toLocaleString()}
+          icon={<Users className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="VIP"
+          value={data.vipCustomers.toLocaleString()}
+          icon={<Users className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Total"
+          value={data.totalCustomers.toLocaleString()}
+          icon={<Users className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Avg LTV"
+          value={`$${Number(data.averageLifetimeValue).toFixed(2)}`}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
       </div>
 
       <div className="flex gap-2 mt-6">
-        <Button variant="outline" size="sm" onClick={() => exportPDF("Customer Report", ["Metric", "Value"], rows, `customer-report-${endDate || "all"}`)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportPDF(
+              "Customer Report",
+              ["Metric", "Value"],
+              rows,
+              `customer-report-${endDate || "all"}`,
+            )
+          }
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
         </Button>
-        <Button variant="outline" size="sm" onClick={() => exportCSV(rows.map((r) => ({ Metric: r[0], Value: r[1] })), `customer-report-${endDate || "all"}`)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportCSV(
+              rows.map((r) => ({ Metric: r[0], Value: r[1] })),
+              `customer-report-${endDate || "all"}`,
+            )
+          }
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
         </Button>
       </div>
@@ -246,7 +431,8 @@ function InventoryReports() {
   const { data, loading } = useInventoryReport();
 
   if (loading) return <Skeleton className="h-48 w-full" />;
-  if (!data) return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
+  if (!data)
+    return <div className="text-sm text-muted-foreground py-12 text-center">No data available</div>;
 
   const rows = [
     ["Total Active Products", data.totalProducts.toLocaleString()],
@@ -260,25 +446,74 @@ function InventoryReports() {
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <DashboardCard label="Active Products" value={data.totalProducts.toLocaleString()} icon={<Package className="h-4 w-4" />} />
-        <DashboardCard label="In Stock" value={data.inStock.toLocaleString()} icon={<Package className="h-4 w-4" />} />
-        <DashboardCard label="Low Stock" value={data.lowStock.toLocaleString()} icon={<Package className="h-4 w-4" />} />
-        <DashboardCard label="Out of Stock" value={data.outOfStock.toLocaleString()} icon={<Package className="h-4 w-4" />} />
-        <DashboardCard label="Stock Value" value={`$${Number(data.totalStockValue).toLocaleString()}`} icon={<DollarSign className="h-4 w-4" />} />
-        <DashboardCard label="Movements (30d)" value={data.recentMovements.toLocaleString()} icon={<TrendingUp className="h-4 w-4" />} />
+        <DashboardCard
+          label="Active Products"
+          value={data.totalProducts.toLocaleString()}
+          icon={<Package className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="In Stock"
+          value={data.inStock.toLocaleString()}
+          icon={<Package className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Low Stock"
+          value={data.lowStock.toLocaleString()}
+          icon={<Package className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Out of Stock"
+          value={data.outOfStock.toLocaleString()}
+          icon={<Package className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Stock Value"
+          value={`$${Number(data.totalStockValue).toLocaleString()}`}
+          icon={<DollarSign className="h-4 w-4" />}
+        />
+        <DashboardCard
+          label="Movements (30d)"
+          value={data.recentMovements.toLocaleString()}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
       </div>
 
       <div className="flex gap-2 mt-6">
-        <Button variant="outline" size="sm" onClick={() => exportPDF("Inventory Report", ["Metric", "Value"], rows, "inventory-report")}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportPDF("Inventory Report", ["Metric", "Value"], rows, "inventory-report")
+          }
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
         </Button>
-        <Button variant="outline" size="sm" onClick={() => exportCSV(rows.map((r) => ({ Metric: r[0], Value: r[1] })), "inventory-report")}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportCSV(
+              rows.map((r) => ({ Metric: r[0], Value: r[1] })),
+              "inventory-report",
+            )
+          }
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
         </Button>
-        <Button variant="outline" size="sm" onClick={() => exportExcel(
-          [{ "Metric": "Total Products", "Value": data.totalProducts }, { "Metric": "In Stock", "Value": data.inStock }],
-          "inventory-report", "Inventory"
-        )}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportExcel(
+              [
+                { Metric: "Total Products", Value: data.totalProducts },
+                { Metric: "In Stock", Value: data.inStock },
+              ],
+              "inventory-report",
+              "Inventory",
+            )
+          }
+        >
           <Download className="h-3.5 w-3.5 mr-1.5" /> Excel
         </Button>
       </div>

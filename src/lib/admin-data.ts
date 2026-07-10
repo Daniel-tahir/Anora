@@ -109,7 +109,9 @@ export function useAdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { stats, loading, refreshing, error, lastUpdated, refetch: () => load(true) };
 }
@@ -133,9 +135,12 @@ export function useAdminOrders(
       const offset = (page - 1) * pageSize;
       let query = supabase
         .from("orders")
-        .select("id, order_number, total, status, payment_status, created_at, shipping_address, user_id", {
-          count: "exact",
-        });
+        .select(
+          "id, order_number, total, status, payment_status, created_at, shipping_address, user_id",
+          {
+            count: "exact",
+          },
+        );
 
       if (search) {
         const sanitized = search.replace(/[^a-zA-Z0-9 @._-]/g, "");
@@ -150,7 +155,11 @@ export function useAdminOrders(
       const safeSortBy = allowedSortColumns.has(sortBy) ? sortBy : "created_at";
       const safeSortDir = sortDir === "asc" ? "asc" : "desc";
 
-      const { data, error: err, count } = await query
+      const {
+        data,
+        error: err,
+        count,
+      } = await query
         .order(safeSortBy, { ascending: safeSortDir === "asc" })
         .range(offset, offset + pageSize - 1);
 
@@ -180,7 +189,9 @@ export function useAdminOrders(
     }
   }, [page, pageSize, search, sortBy, sortDir]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { result, loading, error, refetch: load };
 }
@@ -221,7 +232,11 @@ export function useAdminCustomers(
       const safeSortBy = allowedSortColumns.has(sortBy) ? sortBy : "created_at";
       const safeSortDir = sortDir === "asc" ? "asc" : "desc";
 
-      const { data, error: err, count } = await query
+      const {
+        data,
+        error: err,
+        count,
+      } = await query
         .order(safeSortBy, { ascending: safeSortDir === "asc" })
         .range(offset, offset + pageSize - 1);
 
@@ -243,7 +258,7 @@ export function useAdminCustomers(
         }
       }
 
-      let customers: CustomerRow[] = (data ?? []).map((row) => ({
+      const customers: CustomerRow[] = (data ?? []).map((row) => ({
         id: row.id,
         first_name: row.first_name,
         last_name: row.last_name,
@@ -256,9 +271,7 @@ export function useAdminCustomers(
 
       if (sortBy === "total_orders") {
         customers.sort((a, b) =>
-          safeSortDir === "asc"
-            ? a.total_orders - b.total_orders
-            : b.total_orders - a.total_orders,
+          safeSortDir === "asc" ? a.total_orders - b.total_orders : b.total_orders - a.total_orders,
         );
       }
 
@@ -270,16 +283,14 @@ export function useAdminCustomers(
     }
   }, [page, pageSize, search, sortBy, sortDir]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { result, loading, error, refetch: load };
 }
 
-export function useAdminLowStock(
-  page: number,
-  pageSize: number,
-  search = "",
-) {
+export function useAdminLowStock(page: number, pageSize: number, search = "") {
   const [result, setResult] = useState<LowStockResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -299,15 +310,15 @@ export function useAdminLowStock(
       if (search) {
         const sanitized = search.replace(/[^a-zA-Z0-9 @._/-]/g, "");
         if (sanitized) {
-          query = query.or(
-            `name.ilike.%${sanitized}%,sku.ilike.%${sanitized}%`,
-          );
+          query = query.or(`name.ilike.%${sanitized}%,sku.ilike.%${sanitized}%`);
         }
       }
 
-      const { data, error: err, count } = await query
-        .order("stock", { ascending: true })
-        .range(offset, offset + pageSize - 1);
+      const {
+        data,
+        error: err,
+        count,
+      } = await query.order("stock", { ascending: true }).range(offset, offset + pageSize - 1);
 
       if (err) throw err;
 
@@ -326,7 +337,9 @@ export function useAdminLowStock(
     }
   }, [page, pageSize, search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { result, loading, error, refetch: load };
 }
@@ -372,9 +385,7 @@ export function useAdminProducts(
       if (search) {
         const sanitized = search.replace(/[^a-zA-Z0-9 @._/-]/g, "");
         if (sanitized) {
-          query = query.or(
-            `name.ilike.%${sanitized}%,sku.ilike.%${sanitized}%`,
-          );
+          query = query.or(`name.ilike.%${sanitized}%,sku.ilike.%${sanitized}%`);
         }
       }
 
@@ -382,7 +393,11 @@ export function useAdminProducts(
       const safeSortBy = allowedSortColumns.has(sortBy) ? sortBy : "created_at";
       const safeSortDir = sortDir === "asc" ? "asc" : "desc";
 
-      const { data, error: err, count } = await query
+      const {
+        data,
+        error: err,
+        count,
+      } = await query
         .order(safeSortBy, { ascending: safeSortDir === "asc" })
         .range(offset, offset + pageSize - 1);
 
@@ -406,7 +421,9 @@ export function useAdminProducts(
     }
   }, [page, pageSize, search, sortBy, sortDir]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { result, loading, error, refetch: load };
 }
@@ -419,6 +436,8 @@ export async function createProduct(data: {
   stock: number;
   category_id: string;
   is_active?: boolean;
+  sizes?: string[];
+  size_stock?: Record<string, number>;
 }) {
   const { error } = await supabase.from("products").insert({
     name: data.name,
@@ -428,6 +447,8 @@ export async function createProduct(data: {
     stock: data.stock,
     category_id: data.category_id,
     is_active: data.is_active ?? true,
+    sizes: data.sizes ?? [],
+    size_stock: data.size_stock ?? {},
   });
   if (error) throw error;
 }
@@ -440,18 +461,21 @@ export async function updateProduct(
     price: number;
     stock: number;
     is_active: boolean;
+    sizes?: string[];
+    size_stock?: Record<string, number>;
   },
 ) {
-  const { error } = await supabase
-    .from("products")
-    .update({
-      name: data.name,
-      sku: data.sku,
-      price: data.price,
-      stock: data.stock,
-      is_active: data.is_active,
-    })
-    .eq("id", id);
+  const updateData: Record<string, unknown> = {
+    name: data.name,
+    sku: data.sku,
+    price: data.price,
+    stock: data.stock,
+    is_active: data.is_active,
+    sizes: data.sizes ?? [],
+    size_stock: data.size_stock ?? {},
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from("products").update(updateData).eq("id", id);
   if (error) throw error;
 }
 

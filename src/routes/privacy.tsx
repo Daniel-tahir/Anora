@@ -19,25 +19,24 @@ function Privacy() {
       </div>
       <div className="space-y-10 text-[15px] leading-[1.85] text-foreground/90">
         <Section title="Information Collection">
-          We collect only the information required to fulfil your order and
-          improve your experience — name, contact details, delivery address,
-          and payment information.
+          We collect only the information required to fulfil your order and improve your experience
+          — name, contact details, delivery address, and payment information.
         </Section>
         <Section title="Cookies">
-          Cookies allow us to remember your preferences and personalise content.
-          You may disable cookies in your browser at any time.
+          Cookies allow us to remember your preferences and personalise content. You may disable
+          cookies in your browser at any time.
         </Section>
         <Section title="Payment Security">
-          Payments are processed by certified PCI-DSS compliant providers. We
-          do not store your card details on our servers.
+          Payments are processed by certified PCI-DSS compliant providers. We do not store your card
+          details on our servers.
         </Section>
         <Section title="Third Party Services">
-          Selected partners assist us with shipping, analytics and marketing.
-          They are bound by strict confidentiality agreements.
+          Selected partners assist us with shipping, analytics and marketing. They are bound by
+          strict confidentiality agreements.
         </Section>
         <Section title="Your Rights">
-          You may request access, correction or deletion of your personal data
-          at any time by contacting <span className="text-gold">privacy@anora.com</span>.
+          You may request access, correction or deletion of your personal data at any time by
+          contacting <span className="text-gold">privacy@anora.com</span>.
         </Section>
       </div>
     </div>

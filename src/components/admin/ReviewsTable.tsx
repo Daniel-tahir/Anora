@@ -18,11 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  useReviewsManagement,
-  useAdminReviewStats,
-  type ReviewRow,
-} from "@/lib/admin-reviews";
+import { useReviewsManagement, useAdminReviewStats, type ReviewRow } from "@/lib/admin-reviews";
 import { ReviewDetailsDrawer } from "./ReviewDetailsDrawer";
 
 const ratingLabels = ["", "1 Star", "2 Stars", "3 Stars", "4 Stars", "5 Stars"];
@@ -45,7 +41,11 @@ export function ReviewsTable() {
   const pageSize = 20;
 
   const { result, loading, error, refetch } = useReviewsManagement(
-    page, pageSize, search, sortBy, sortDir,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
     statusFilter === "all" ? "" : statusFilter,
     ratingFilter,
   );
@@ -118,10 +118,19 @@ export function ReviewsTable() {
         <Input
           placeholder="Search by product, customer, or text..."
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="max-w-xs"
         />
-        <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setPage(1); }}>
+        <Select
+          value={statusFilter}
+          onValueChange={(val) => {
+            setStatusFilter(val);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -132,7 +141,13 @@ export function ReviewsTable() {
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={String(ratingFilter)} onValueChange={(val) => { setRatingFilter(Number(val)); setPage(1); }}>
+        <Select
+          value={String(ratingFilter)}
+          onValueChange={(val) => {
+            setRatingFilter(Number(val));
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All ratings" />
           </SelectTrigger>
@@ -151,7 +166,9 @@ export function ReviewsTable() {
       {error && (
         <div className="border border-red/20 bg-red/5 p-4 text-center">
           <p className="text-sm text-red/80">{error}</p>
-          <button onClick={refetch} className="text-sm underline mt-2">Retry</button>
+          <button onClick={refetch} className="text-sm underline mt-2">
+            Retry
+          </button>
         </div>
       )}
 
@@ -162,13 +179,22 @@ export function ReviewsTable() {
             <TableRow>
               <TableHead>Product</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("rating")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("rating")}
+              >
                 Rating{sortIndicator("rating")}
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("status")}
+              >
                 Status{sortIndicator("status")}
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => handleSort("created_at")}
+              >
                 Date{sortIndicator("created_at")}
               </TableHead>
             </TableRow>
@@ -177,11 +203,21 @@ export function ReviewsTable() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
                 </TableRow>
               ))
             ) : (result?.reviews?.length ?? 0) === 0 ? (
@@ -205,7 +241,10 @@ export function ReviewsTable() {
                     <span className="tabular-nums">{review.rating}/5</span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusColors[review.status] ?? "outline"} className="capitalize">
+                    <Badge
+                      variant={statusColors[review.status] ?? "outline"}
+                      className="capitalize"
+                    >
                       {review.status}
                     </Badge>
                   </TableCell>
@@ -223,11 +262,23 @@ export function ReviewsTable() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{result?.total ?? 0} total</p>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+          >
             Previous
           </Button>
-          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+          >
             Next
           </Button>
         </div>
@@ -236,7 +287,10 @@ export function ReviewsTable() {
       <ReviewDetailsDrawer
         reviewId={selectedReviewId}
         open={drawerOpen}
-        onClose={() => { setDrawerOpen(false); setSelectedReviewId(null); }}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedReviewId(null);
+        }}
         onUpdated={refetch}
       />
     </div>

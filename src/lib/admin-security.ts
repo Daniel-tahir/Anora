@@ -111,7 +111,13 @@ export interface AbandonedCartAnalytics {
   converted_carts: number;
   recovery_rate: number;
   average_cart_value: number;
-  trend: { period: string; total_carts: number; total_value: number; recovered: number; recovered_value: number }[];
+  trend: {
+    period: string;
+    total_carts: number;
+    total_value: number;
+    recovered: number;
+    recovered_value: number;
+  }[];
 }
 
 export interface AbandonedCartRow {
@@ -179,7 +185,9 @@ export function useActivityTimeline(
     }
   }, [page, pageSize, entityType, action, search, dateFrom, dateTo, actorId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -206,8 +214,10 @@ export function useAuditLogs(
       setLoading(true);
       setError(null);
       const params: Record<string, unknown> = {
-        p_page: page, p_page_size: pageSize,
-        p_sort_by: sortBy, p_sort_dir: sortDir,
+        p_page: page,
+        p_page_size: pageSize,
+        p_sort_by: sortBy,
+        p_sort_dir: sortDir,
       };
       if (entityType) params.p_entity_type = entityType;
       if (action) params.p_action = action;
@@ -224,7 +234,9 @@ export function useAuditLogs(
     }
   }, [page, pageSize, entityType, action, search, dateFrom, dateTo, actorId, sortBy, sortDir]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -262,7 +274,9 @@ export function useAdminActivity(
     }
   }, [page, pageSize, action, entityType, search, dateFrom, dateTo]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -296,7 +310,9 @@ export function useFailedLogins(
     }
   }, [page, pageSize, search, dateFrom, dateTo]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -322,7 +338,9 @@ export function useActiveSessions(page: number, pageSize: number, search = "") {
     }
   }, [page, pageSize, search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -346,7 +364,9 @@ export function useSecurityOverview() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 
@@ -371,8 +391,10 @@ export function useAbandonedCarts(
       setLoading(true);
       setError(null);
       const params: Record<string, unknown> = {
-        p_page: page, p_page_size: pageSize,
-        p_sort_by: sortBy, p_sort_dir: sortDir,
+        p_page: page,
+        p_page_size: pageSize,
+        p_sort_by: sortBy,
+        p_sort_dir: sortDir,
       };
       if (status) params.p_status = status;
       if (search) params.p_search = search;
@@ -387,7 +409,9 @@ export function useAbandonedCarts(
     }
   }, [page, pageSize, status, search, dateFrom, dateTo, sortBy, sortDir]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -414,7 +438,9 @@ export function useAbandonedCartAnalytics(dateFrom = "", dateTo = "", groupBy = 
     }
   }, [dateFrom, dateTo, groupBy]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 

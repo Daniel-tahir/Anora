@@ -39,24 +39,34 @@ export function MenuDrawer({ open, onClose }: Props) {
         }`}
       >
         <div className="flex items-center justify-between px-7 h-16 lg:h-20 border-b border-border/70">
-          <Link to="/" onClick={onClose} className="font-serif text-2xl tracking-[0.3em] hover:text-gold transition-colors">
+          <Link
+            to="/"
+            onClick={onClose}
+            className="font-serif text-2xl tracking-[0.3em] hover:text-gold transition-colors"
+          >
             ANORA
           </Link>
-          <button onClick={onClose} aria-label="Close menu" className="hover:text-gold transition-all duration-300 hover:scale-105">
+          <button
+            onClick={onClose}
+            aria-label="Close menu"
+            className="hover:text-gold transition-all duration-300 hover:scale-105"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="h-[calc(100%-5rem)] overflow-y-auto px-7 py-10 space-y-10">
-            {categories.length > 0 ? categories.map((cat) => (
-            <Section
-              key={cat.id}
-              title={cat.name}
-              items={cat.children.map((c) => ({ name: c.name, slug: c.slug }))}
-              base={`/shop/${cat.slug}`}
-              onNav={onClose}
-            />
-          )) : (
+          {categories.length > 0 ? (
+            categories.map((cat) => (
+              <Section
+                key={cat.id}
+                title={cat.name}
+                items={cat.children.map((c) => ({ name: c.name, slug: c.slug }))}
+                base={`/shop/${cat.slug}`}
+                onNav={onClose}
+              />
+            ))
+          ) : (
             <>
               <Section
                 title="Clothing"

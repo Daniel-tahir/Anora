@@ -4,7 +4,10 @@ export const Route = createFileRoute("/returns")({
   head: () => ({
     meta: [
       { title: "Exchange & Returns — ANORA" },
-      { name: "description", content: "ANORA's exchange and return policy — 14-day returns on unworn pieces." },
+      {
+        name: "description",
+        content: "ANORA's exchange and return policy — 14-day returns on unworn pieces.",
+      },
     ],
   }),
   component: Returns,
@@ -19,22 +22,21 @@ function Returns() {
       </div>
       <div className="space-y-10 text-[15px] leading-[1.85] text-foreground/90">
         <Section title="Return Period">
-          We accept returns within 14 days of delivery. Pieces must be unworn,
-          unwashed and returned in their original packaging with all tags
-          attached.
+          We accept returns within 14 days of delivery. Pieces must be unworn, unwashed and returned
+          in their original packaging with all tags attached.
         </Section>
         <Section title="Exchange Conditions">
-          Exchanges are offered for size or colour, subject to availability. Fine
-          jewellery and made-to-order garments are final sale.
+          Exchanges are offered for size or colour, subject to availability. Fine jewellery and
+          made-to-order garments are final sale.
         </Section>
         <Section title="Refund Policy">
-          Refunds are processed to the original payment method within 5–7
-          business days of our receiving and inspecting your return.
+          Refunds are processed to the original payment method within 5–7 business days of our
+          receiving and inspecting your return.
         </Section>
         <Section title="How to Request an Exchange">
-          Request an exchange from My Orders, or email <span className="text-gold">care@anora.com</span> with your order number.
-          We will arrange complimentary collection and dispatch your new piece
-          the moment your original is received.
+          Request an exchange from My Orders, or email{" "}
+          <span className="text-gold">care@anora.com</span> with your order number. We will arrange
+          complimentary collection and dispatch your new piece the moment your original is received.
         </Section>
       </div>
     </div>

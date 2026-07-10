@@ -39,7 +39,11 @@ function ForgotPasswordPage() {
           We've sent a password reset link to <strong className="text-foreground">{email}</strong>.
           It expires in 1 hour.
         </p>
-        <Link to="/login" search={{ redirectTo: "/account", confirmed: undefined }} className="inline-block mt-8 text-[11px] tracking-[0.32em] uppercase hover-underline">
+        <Link
+          to="/login"
+          search={{ redirectTo: "/account", confirmed: undefined }}
+          className="inline-block mt-8 text-[11px] tracking-[0.32em] uppercase hover-underline"
+        >
           Back to sign in
         </Link>
       </div>
@@ -58,11 +62,15 @@ function ForgotPasswordPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">{error}</p>
+          <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">
+            {error}
+          </p>
         )}
 
         <label className="block">
-          <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">Email</span>
+          <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+            Email
+          </span>
           <input
             type="email"
             required
@@ -82,7 +90,13 @@ function ForgotPasswordPage() {
         </button>
 
         <p className="text-center text-xs text-muted-foreground pt-2">
-          <Link to="/login" search={{ redirectTo: "/account", confirmed: undefined }} className="hover-underline">Back to sign in</Link>
+          <Link
+            to="/login"
+            search={{ redirectTo: "/account", confirmed: undefined }}
+            className="hover-underline"
+          >
+            Back to sign in
+          </Link>
         </p>
       </form>
     </div>

@@ -77,13 +77,22 @@ function Pagination({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground pt-4">
-      <span>{total} product{total !== 1 ? "s" : ""}</span>
+      <span>
+        {total} product{total !== 1 ? "s" : ""}
+      </span>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           Previous
         </Button>
-        <span className="text-xs">Page {page} of {totalPages}</span>
-        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
+        <span className="text-xs">
+          Page {page} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages}
+          onClick={() => onPage(page + 1)}
+        >
           Next
         </Button>
       </div>
@@ -113,7 +122,10 @@ export function LowStockWidget() {
         <Input
           placeholder="Search products…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            setPage(1);
+          }}
           className="max-w-60 h-9 text-sm"
         />
       </div>
@@ -145,7 +157,9 @@ export function LowStockWidget() {
                       </TableCell>
                       <TableCell className="text-right font-mono">{p.stock}</TableCell>
                       <TableCell>
-                        <span className={`inline-block px-2.5 py-1 text-[10px] tracking-[0.2em] uppercase ${status.classes}`}>
+                        <span
+                          className={`inline-block px-2.5 py-1 text-[10px] tracking-[0.2em] uppercase ${status.classes}`}
+                        >
                           {status.label}
                         </span>
                       </TableCell>

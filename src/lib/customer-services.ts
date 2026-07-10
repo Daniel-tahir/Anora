@@ -5,6 +5,7 @@ import {
   getProductAvailability,
   validateStockBeforeCheckout,
 } from "./inventory";
+import { isStockOnlyError } from "./inventory-validation";
 
 export interface CartItem {
   id: string;
@@ -12,9 +13,7 @@ export interface CartItem {
   variantId?: string | null;
   size: string;
   quantity: number;
-  active: boolean;
   source: "local" | "server";
-  updatedAt: number;
 }
 
 export interface WishlistState {
@@ -44,7 +43,6 @@ const listeners = new Set<Listener>();
 const productRegistry = new Map<string, Product>();
 const searchCache = new Map<string, Product[]>();
 
-// Initialize registry with hardcoded catalog products
 for (const p of catalog) {
   productRegistry.set(p.id, p);
 }
@@ -97,6 +95,17 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
+export function initCrossTabSync() {
+  if (!isBrowser()) return;
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (e.key === CART_KEY || e.key === WISH_KEY) {
+      hydrated = false;
+      hydrate();
+      notify();
+    }
+  });
+}
+
 function hydrate() {
   if (hydrated) return;
   hydrated = true;
@@ -105,8 +114,6 @@ function hydrate() {
   ensureSessionId();
   rebuildSnapshots();
 
-  // Kick off async product loading for any cart items referencing
-  // DB products not yet in the registry (e.g. after a page reload).
   const missingIds = cartItems
     .map((i) => i.productId)
     .filter((id) => !productRegistry.has(id) && !catalog.find((p) => p.id === id));
@@ -127,9 +134,6 @@ function rebuildSnapshots() {
   const detailed = cartItems.flatMap((item) => {
     const product = getProduct(item.productId);
     if (!product) {
-      // Product data unavailable (e.g. DB product not yet loaded after page reload).
-      // Keep the item in snapshots so the cart isn't empty; subtotal defaults to 0
-      // until product data arrives. Use a stub product to avoid null crashes in consumers.
       return [
         {
           item,
@@ -148,8 +152,8 @@ function rebuildSnapshots() {
             sizeStock: {},
             images: [],
           },
-          active: item.active,
-          availableQuantity: item.quantity,
+          active: false,
+          availableQuantity: 0,
         },
       ];
     }
@@ -159,11 +163,15 @@ function rebuildSnapshots() {
       size: item.size,
       quantity: item.quantity,
     });
+
+    const isStockIssue =
+      !validation.ok && validation.code ? isStockOnlyError(validation.code) : false;
+
     return [
       {
         item,
         product,
-        active: validation.ok && item.quantity > 0,
+        active: isStockIssue ? item.quantity > 0 : validation.ok && item.quantity > 0,
         availableQuantity: validation.availableQuantity,
       },
     ];
@@ -172,7 +180,7 @@ function rebuildSnapshots() {
   const activeDetailed = detailed.filter((entry) => entry.active);
   cartSnapshotCache = {
     items: cartItems,
-    count: cartItems.reduce((sum, item) => sum + activeQuantity(item), 0),
+    count: activeDetailed.reduce((sum, entry) => sum + entry.item.quantity, 0),
     subtotal: activeDetailed.reduce((sum, entry) => {
       const price = entry.product?.price ?? 0;
       return sum + entry.item.quantity * price;
@@ -182,21 +190,14 @@ function rebuildSnapshots() {
   wishlistSnapshotCache = { ids: wishIds };
 }
 
-/** Register a product so cart operations can find it by ID. */
 export function registerProduct(product: Product) {
   productRegistry.set(product.id, product);
 }
 
-/** Look up a product by ID — checks the registry first, then the hardcoded catalog. */
 function getProduct(productId: string) {
   return productRegistry.get(productId) ?? catalog.find((entry) => entry.id === productId);
 }
 
-/**
- * Fetch product data from the DB for IDs not yet in the registry.
- * This handles the post-login page-reload case where the registry is empty
- * but cart items from localStorage reference DB products (UUIDs).
- */
 const productsLoading = new Set<string>();
 
 async function loadProductsByIds(ids: string[]) {
@@ -240,6 +241,8 @@ async function loadProductsByIds(ids: string[]) {
           category: "clothing" as const,
           subcategory: "",
           description: row.description ?? "",
+          fabric: row.fabric ?? undefined,
+          material: row.material ?? undefined,
           color: row.color ?? "Ivory",
           sizes: (row.sizes as string[]) ?? [],
           sku: row.sku ?? "",
@@ -266,8 +269,21 @@ function clamp(qty: number) {
   return Math.max(0, Math.floor(Number(qty) || 0));
 }
 
-function activeQuantity(item: CartItem) {
-  return item.active ? item.quantity : 0;
+function computeCartItem(
+  existing: CartItem | undefined,
+  productId: string,
+  variantId: string | null | undefined,
+  size: string,
+  quantity: number,
+): CartItem {
+  return {
+    id: existing?.id ?? crypto.randomUUID(),
+    productId,
+    variantId: variantId ?? null,
+    size,
+    quantity: clamp(quantity),
+    source: currentUserId ? "server" : "local",
+  };
 }
 
 export function subscribe(listener: Listener) {
@@ -295,8 +311,7 @@ export function validateCartStock(items: CartItem[] = cartItems) {
   const validated = items.map((item) => {
     const product = getProduct(item.productId);
     if (!product) {
-      // Product data not available — keep item active with current quantity
-      return { ...item };
+      return { ...item, quantity: 0 };
     }
     const validation = validateStockBeforeCheckout(product, {
       productId: item.productId,
@@ -304,12 +319,19 @@ export function validateCartStock(items: CartItem[] = cartItems) {
       size: item.size,
       quantity: item.quantity,
     });
+
+    const isStockIssue =
+      !validation.ok && validation.code ? isStockOnlyError(validation.code) : false;
+
+    if (!validation.ok && !isStockIssue) {
+      return { ...item, quantity: 0 };
+    }
+
     const nextQty = validation.ok
       ? item.quantity
       : Math.min(item.quantity, validation.availableQuantity);
     return {
       ...item,
-      active: validation.ok && nextQty > 0,
       quantity: nextQty,
     };
   });
@@ -331,7 +353,10 @@ export async function addToCart(productId: string, variantId?: string | null, si
         quantity: qty,
       })
     : null;
-  if (validation && !validation.ok) return;
+  if (validation && !validation.ok) {
+    const isStockIssue = validation.code ? isStockOnlyError(validation.code) : false;
+    if (!isStockIssue) return;
+  }
 
   const key = cartKey(productId, variantId, size);
   const existing = cartItems.find(
@@ -339,16 +364,7 @@ export async function addToCart(productId: string, variantId?: string | null, si
   );
   const nextQuantity = clamp((existing?.quantity ?? 0) + qty);
   const capped = validation ? Math.min(nextQuantity, validation.availableQuantity) : nextQuantity;
-  const next: CartItem = {
-    id: existing?.id ?? crypto.randomUUID(),
-    productId,
-    variantId: variantId ?? null,
-    size,
-    quantity: capped,
-    active: capped > 0 && (validation ? validation.ok : true),
-    source: currentUserId ? "server" : "local",
-    updatedAt: Date.now(),
-  };
+  const next = computeCartItem(existing, productId, variantId, size, capped);
   cartItems = existing
     ? cartItems.map((item) => (item.id === existing.id ? next : item))
     : [...cartItems, next];
@@ -362,28 +378,22 @@ export async function addToCart(productId: string, variantId?: string | null, si
 
 export async function removeFromCart(itemId: string) {
   hydrate();
-  const removedItem = cartItems.find((item) => item.id === itemId);
   cartItems = cartItems.filter((item) => item.id !== itemId);
   persist();
   rebuildSnapshots();
   notify();
-  if (currentUserId && removedItem) {
-    // Delete the server row BEFORE syncing so syncCartWithServer() does NOT
-    // fetch it and merge it back in.
-    const q = supabase
-      .from("cart_items")
-      .delete()
-      .eq("user_id", currentUserId)
-      .eq("product_id", removedItem.productId)
-      .eq("size", removedItem.size);
-    // Supabase .eq(null) generates `= null` which PostgREST treats as
-    // literal string, NOT `IS NULL`.  Use .is() for null variant_id.
-    if (removedItem.variantId != null) {
-      q.eq("variant_id", removedItem.variantId);
-    } else {
-      q.is("variant_id", null);
-    }
-    await q;
+  if (currentUserId) {
+    await syncCartWithServer();
+  }
+}
+
+export async function clearCart() {
+  hydrate();
+  cartItems = [];
+  persist();
+  rebuildSnapshots();
+  notify();
+  if (currentUserId) {
     await syncCartWithServer();
   }
 }
@@ -392,16 +402,7 @@ export async function updateCartQuantity(itemId: string, qty: number) {
   hydrate();
   const nextQty = clamp(qty);
   cartItems = cartItems
-    .map((item) =>
-      item.id === itemId
-        ? {
-            ...item,
-            quantity: nextQty,
-            active: nextQty > 0,
-            updatedAt: Date.now(),
-          }
-        : item,
-    )
+    .map((item) => (item.id === itemId ? { ...item, quantity: nextQty } : item))
     .filter((item) => item.quantity > 0);
   validateCartStock();
   if (currentUserId) {
@@ -413,51 +414,12 @@ export async function syncCartWithServer() {
   hydrate();
   if (!currentUserId) return cartItems;
 
-  const { data, error } = await supabase
-    .from("cart_items")
-    .select("id, product_id, variant_id, size, quantity")
-    .eq("user_id", currentUserId);
+  await loadProductsByIds(cartItems.map((i) => i.productId));
 
-  if (error) return cartItems;
-
-  const serverItems: CartItem[] = ((data ?? []) as CartRow[]).map((row) => ({
-    id: row.id,
-    productId: row.product_id,
-    variantId: row.variant_id,
-    size: row.size ?? "",
-    quantity: row.quantity,
-    active: true,
-    source: "server",
-    updatedAt: Date.now(),
-  }));
-
-  // Load product data for any IDs not yet in the registry
-  const allIds = [...serverItems, ...cartItems].map((i) => i.productId);
-  await loadProductsByIds(allIds);
-
-  // Local deletions are authoritative: start with local items as the base,
-  // then only merge server items that already exist locally.
-  const merged = new Map<string, CartItem>();
-  for (const item of cartItems) {
-    merged.set(cartKey(item.productId, item.variantId, item.size), item);
-  }
-  for (const item of serverItems) {
-    const key = cartKey(item.productId, item.variantId, item.size);
-    const existing = merged.get(key);
-    if (existing) {
-      merged.set(key, {
-        ...existing,
-        quantity: Math.max(existing.quantity, item.quantity),
-        active: existing.active || item.active,
-      });
-    }
-  }
-
-  cartItems = Array.from(merged.values()).map((item) => {
+  cartItems = cartItems.map((item) => {
     const product = getProduct(item.productId);
     if (!product) {
-      // Product data unavailable — keep item active (validation was done at add time)
-      return { ...item, active: true, source: "server" as const };
+      return { ...item, source: "server" as const };
     }
     const validation = validateStockBeforeCheckout(product, {
       productId: item.productId,
@@ -465,27 +427,56 @@ export async function syncCartWithServer() {
       size: item.size,
       quantity: item.quantity,
     });
+
+    const isStockIssue =
+      !validation.ok && validation.code ? isStockOnlyError(validation.code) : false;
+
+    if (!validation.ok && !isStockIssue) {
+      return { ...item, quantity: 0, source: "server" as const };
+    }
+
     return {
       ...item,
       quantity: validation.ok
         ? item.quantity
         : Math.min(item.quantity, validation.availableQuantity),
-      active: validation.ok,
-      source: "server",
+      source: "server" as const,
     };
   });
 
-  const payload = cartItems.map((item) => ({
-    user_id: currentUserId,
-    product_id: item.productId,
-    variant_id: item.variantId ?? null,
-    size: item.size,
-    quantity: item.quantity,
-  }));
+  const { error: deleteError } = await supabase
+    .from("cart_items")
+    .delete()
+    .eq("user_id", currentUserId);
 
-  await supabase.from("cart_items").delete().eq("user_id", currentUserId);
-  if (payload.length > 0) {
-    await supabase.from("cart_items").insert(payload);
+  if (deleteError) return cartItems;
+
+  if (cartItems.length > 0) {
+    const { data: inserted, error: insertError } = await supabase
+      .from("cart_items")
+      .insert(
+        cartItems.map((item) => ({
+          user_id: currentUserId!,
+          product_id: item.productId,
+          variant_id: item.variantId ?? null,
+          size: item.size,
+          quantity: item.quantity,
+        })),
+      )
+      .select("id, product_id, variant_id, size");
+
+    if (!insertError && inserted) {
+      const idMap = new Map<string, string>();
+      for (const row of inserted) {
+        const key = cartKey(row.product_id, row.variant_id, row.size ?? "");
+        idMap.set(key, row.id);
+      }
+      cartItems = cartItems.map((item) => ({
+        ...item,
+        id: idMap.get(cartKey(item.productId, item.variantId, item.size)) ?? item.id,
+        source: "server" as const,
+      }));
+    }
   }
 
   persist();
@@ -497,34 +488,6 @@ export async function syncCartWithServer() {
 export async function mergeGuestCartToUser(userId: string) {
   hydrate();
   currentUserId = userId;
-  const guestItems = cartItems.filter((item) => item.source === "local");
-  if (guestItems.length === 0) {
-    // No guest items – download server cart into local state, then sync.
-    const { data, error } = await supabase
-      .from("cart_items")
-      .select("id, product_id, variant_id, size, quantity")
-      .eq("user_id", userId);
-    if (!error && data && data.length > 0) {
-      cartItems = (data as CartRow[]).map((row) => ({
-        id: row.id,
-        productId: row.product_id,
-        variantId: row.variant_id,
-        size: row.size ?? "",
-        quantity: row.quantity,
-        active: true,
-        source: "server" as const,
-        updatedAt: Date.now(),
-      }));
-      await loadProductsByIds(cartItems.map((i) => i.productId));
-      persist();
-      rebuildSnapshots();
-      notify();
-    }
-    return syncCartWithServer();
-  }
-
-  // Load product data for guest items, which may reference DB products not yet in registry
-  await loadProductsByIds(guestItems.map((i) => i.productId));
 
   const { data, error } = await supabase
     .from("cart_items")
@@ -533,51 +496,74 @@ export async function mergeGuestCartToUser(userId: string) {
 
   if (error) return cartItems;
 
-  const merged = new Map<string, CartItem>();
-  for (const item of ((data ?? []) as CartRow[]).map((row) => ({
-    id: row.id,
-    productId: row.product_id,
-    variantId: row.variant_id,
-    size: row.size ?? "",
-    quantity: row.quantity,
-    active: true,
-    source: "server" as const,
-    updatedAt: Date.now(),
-  }))) {
-    merged.set(cartKey(item.productId, item.variantId, item.size), item);
+  // If local cart was cleared while we read from DB (e.g., by checkout
+  // success handler after 3DS redirect), don't restore from server.
+  // This prevents a race where mergeGuestCartToUser reads old server
+  // items before syncCartWithServer deletes them, restoring a just-checked-out cart.
+  const freshLocal = readJson<CartItem[]>(CART_KEY, []);
+  if (freshLocal.length === 0 && cartItems.length > 0) {
+    cartItems = [];
+    await supabase.from("cart_items").delete().eq("user_id", userId);
+    persist();
+    rebuildSnapshots();
+    notify();
+    return cartItems;
   }
 
-  for (const item of guestItems) {
+  // Re-instate fresh local state in case it changed
+  cartItems = freshLocal;
+
+  await loadProductsByIds(cartItems.map((i) => i.productId));
+
+  const localMap = new Map<string, CartItem>();
+  for (const item of cartItems) {
     const key = cartKey(item.productId, item.variantId, item.size);
+    const existing = localMap.get(key);
+    if (existing) {
+      existing.quantity = Math.min(existing.quantity + item.quantity, 999);
+    } else {
+      localMap.set(key, { ...item });
+    }
+  }
+
+  const merged = new Map<string, CartItem>();
+  for (const row of (data ?? []) as CartRow[]) {
+    const key = cartKey(row.product_id, row.variant_id, row.size ?? "");
+    merged.set(key, {
+      id: row.id,
+      productId: row.product_id,
+      variantId: row.variant_id,
+      size: row.size ?? "",
+      quantity: row.quantity,
+      source: "server" as const,
+    });
+  }
+
+  for (const [key, item] of localMap) {
     const existing = merged.get(key);
-    const product = getProduct(item.productId);
-    if (!product) {
-      // Product data unavailable — keep the item with its stored values
+    if (existing) {
+      const maxQty = Math.max(existing.quantity, item.quantity);
+      const product = getProduct(item.productId);
+      const validation = product
+        ? validateStockBeforeCheckout(product, {
+            productId: item.productId,
+            variantId: item.variantId ?? undefined,
+            size: item.size,
+            quantity: maxQty,
+          })
+        : null;
+      merged.set(key, {
+        ...existing,
+        quantity: validation?.ok
+          ? maxQty
+          : Math.min(maxQty, validation?.availableQuantity ?? maxQty),
+      });
+    } else {
       merged.set(key, {
         ...item,
-        source: "server",
+        source: "server" as const,
       });
-      continue;
     }
-    const validation = validateStockBeforeCheckout(product, {
-      productId: item.productId,
-      variantId: item.variantId ?? undefined,
-      size: item.size,
-      quantity: (existing?.quantity ?? 0) + item.quantity,
-    });
-    const nextQuantity = validation.ok
-      ? (existing?.quantity ?? 0) + item.quantity
-      : Math.min((existing?.quantity ?? 0) + item.quantity, validation.availableQuantity);
-    merged.set(key, {
-      id: existing?.id ?? item.id,
-      productId: item.productId,
-      variantId: item.variantId ?? null,
-      size: item.size,
-      quantity: nextQuantity,
-      active: nextQuantity > 0,
-      source: "server",
-      updatedAt: Date.now(),
-    });
   }
 
   cartItems = Array.from(merged.values());

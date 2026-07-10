@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { useInvoicesManagement, useInvoiceDetails, generateInvoice, updateInvoiceStatus, sendInvoiceEmail, type InvoiceRow } from "@/lib/admin-invoices";
+import {
+  useInvoicesManagement,
+  useInvoiceDetails,
+  generateInvoice,
+  updateInvoiceStatus,
+  sendInvoiceEmail,
+  type InvoiceRow,
+} from "@/lib/admin-invoices";
 import { DashboardCard } from "@/components/admin/DashboardCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,9 +46,12 @@ export function InvoicesTable() {
 
   const pageSize = 15;
 
-  const { result: invResult, loading, error, refetch } = useInvoicesManagement(
-    page, pageSize, search, sortBy, sortDir, statusFilter,
-  );
+  const {
+    result: invResult,
+    loading,
+    error,
+    refetch,
+  } = useInvoicesManagement(page, pageSize, search, sortBy, sortDir, statusFilter);
   const { data: detailData, loading: detailLoading } = useInvoiceDetails(selectedInvoiceId);
   const { data: financeDash } = useFinanceDashboard();
   const [genLoading, setGenLoading] = useState(false);
@@ -52,7 +62,10 @@ export function InvoicesTable() {
     let timer: ReturnType<typeof setTimeout>;
     return (val: string) => {
       clearTimeout(timer);
-      timer = setTimeout(() => { setSearch(val); setPage(1); }, 300);
+      timer = setTimeout(() => {
+        setSearch(val);
+        setPage(1);
+      }, 300);
     };
   })();
 
@@ -73,12 +86,26 @@ export function InvoicesTable() {
 
   const totalPages = Math.max(1, Math.ceil((invResult?.total ?? 0) / pageSize));
 
-  const invoiceCards = financeDash ? [
-    { label: "Total Invoices", value: financeDash.totalInvoices.toLocaleString() },
-    { label: "Draft", value: financeDash.draftInvoices.toLocaleString(), icon: <FileText className="h-4 w-4" /> },
-    { label: "Issued", value: financeDash.issuedInvoices.toLocaleString(), icon: <FileText className="h-4 w-4" /> },
-    { label: "Paid", value: financeDash.paidInvoices.toLocaleString(), icon: <CheckCircle className="h-4 w-4" /> },
-  ] : [];
+  const invoiceCards = financeDash
+    ? [
+        { label: "Total Invoices", value: financeDash.totalInvoices.toLocaleString() },
+        {
+          label: "Draft",
+          value: financeDash.draftInvoices.toLocaleString(),
+          icon: <FileText className="h-4 w-4" />,
+        },
+        {
+          label: "Issued",
+          value: financeDash.issuedInvoices.toLocaleString(),
+          icon: <FileText className="h-4 w-4" />,
+        },
+        {
+          label: "Paid",
+          value: financeDash.paidInvoices.toLocaleString(),
+          icon: <CheckCircle className="h-4 w-4" />,
+        },
+      ]
+    : [];
 
   function handleDownloadPDF(invoice: InvoiceRow) {
     if (!detailData) return;
@@ -114,17 +141,15 @@ export function InvoicesTable() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {invoiceCards.map((c) => <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />)}
+        {invoiceCards.map((c) => (
+          <DashboardCard key={c.label} label={c.label} value={c.value} icon={c.icon} />
+        ))}
       </div>
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6 items-start sm:items-center justify-between">
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setGenerateOpen(!generateOpen)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setGenerateOpen(!generateOpen)}>
             Generate Invoice
           </Button>
           {invResult?.invoices && invResult.invoices.length > 0 && (
@@ -185,9 +210,7 @@ export function InvoicesTable() {
       </div>
 
       {genError && (
-        <div className="border border-red/20 bg-red/5 p-4 text-sm text-red/80 mb-6">
-          {genError}
-        </div>
+        <div className="border border-red/20 bg-red/5 p-4 text-sm text-red/80 mb-6">{genError}</div>
       )}
 
       {/* Filters */}
@@ -195,12 +218,18 @@ export function InvoicesTable() {
         <Input
           placeholder="Search invoices, customers…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
           className="max-w-sm h-9 text-sm"
         />
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
         >
           <option value="">All Statuses</option>
@@ -216,7 +245,9 @@ export function InvoicesTable() {
       {error && (
         <div className="border border-red/20 bg-red/5 p-6 text-center mb-6">
           <p className="text-sm text-red/80">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">
+            Retry
+          </Button>
         </div>
       )}
 
@@ -224,7 +255,9 @@ export function InvoicesTable() {
       {loading && !error && (
         <div className="space-y-3">
           <Skeleton className="h-10 w-full" />
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
         </div>
       )}
 
@@ -232,7 +265,9 @@ export function InvoicesTable() {
       {!loading && !error && invResult && invResult.invoices.length === 0 && (
         <div className="border border-border/60 p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            {search || statusFilter ? "No invoices match your filters" : "No invoices yet. Generate one from an order."}
+            {search || statusFilter
+              ? "No invoices match your filters"
+              : "No invoices yet. Generate one from an order."}
           </p>
         </div>
       )}
@@ -244,11 +279,25 @@ export function InvoicesTable() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/60">
-                  <Th onClick={() => toggleSort("number")}>Invoice #<SortIcon column="number" /></Th>
-                  <Th onClick={() => toggleSort("customer")}>Customer<SortIcon column="customer" /></Th>
-                  <Th onClick={() => toggleSort("total")} className="text-right">Total<SortIcon column="total" /></Th>
-                  <Th onClick={() => toggleSort("status")}>Status<SortIcon column="status" /></Th>
-                  <Th onClick={() => toggleSort("issue_date")}>Date<SortIcon column="issue_date" /></Th>
+                  <Th onClick={() => toggleSort("number")}>
+                    Invoice #<SortIcon column="number" />
+                  </Th>
+                  <Th onClick={() => toggleSort("customer")}>
+                    Customer
+                    <SortIcon column="customer" />
+                  </Th>
+                  <Th onClick={() => toggleSort("total")} className="text-right">
+                    Total
+                    <SortIcon column="total" />
+                  </Th>
+                  <Th onClick={() => toggleSort("status")}>
+                    Status
+                    <SortIcon column="status" />
+                  </Th>
+                  <Th onClick={() => toggleSort("issue_date")}>
+                    Date
+                    <SortIcon column="issue_date" />
+                  </Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
@@ -257,63 +306,105 @@ export function InvoicesTable() {
                   <tr
                     key={inv.id}
                     className="border-b border-border/40 hover:bg-muted/30 cursor-pointer"
-                    onClick={() => { setSelectedInvoiceId(inv.id); setDetailOpen(true); }}
+                    onClick={() => {
+                      setSelectedInvoiceId(inv.id);
+                      setDetailOpen(true);
+                    }}
                   >
                     <td className="px-4 py-3 text-sm font-medium">{inv.invoice_number}</td>
-                    <td className="px-4 py-3 text-sm">{inv.customer_name}<br /><span className="text-xs text-muted-foreground">{inv.customer_email}</span></td>
-                    <td className="px-4 py-3 text-sm text-right font-serif tabular-nums">${Number(inv.total_amount).toLocaleString()}</td>
-                    <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
+                    <td className="px-4 py-3 text-sm">
+                      {inv.customer_name}
+                      <br />
+                      <span className="text-xs text-muted-foreground">{inv.customer_email}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-serif tabular-nums">
+                      ${Number(inv.total_amount).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={inv.status} />
+                    </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                      {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                      {inv.issued_at
+                        ? new Date(inv.issued_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button className="p-1.5 text-muted-foreground hover:text-foreground" title="View" onClick={() => { setSelectedInvoiceId(inv.id); setDetailOpen(true); }}>
+                        <button
+                          className="p-1.5 text-muted-foreground hover:text-foreground"
+                          title="View"
+                          onClick={() => {
+                            setSelectedInvoiceId(inv.id);
+                            setDetailOpen(true);
+                          }}
+                        >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        <button className="p-1.5 text-muted-foreground hover:text-foreground" title="Download PDF" onClick={() => {
-                          setSelectedInvoiceId(inv.id);
-                          setTimeout(() => handleDownloadPDF(inv), 200);
-                        }}>
+                        <button
+                          className="p-1.5 text-muted-foreground hover:text-foreground"
+                          title="Download PDF"
+                          onClick={() => {
+                            setSelectedInvoiceId(inv.id);
+                            setTimeout(() => handleDownloadPDF(inv), 200);
+                          }}
+                        >
                           <Download className="h-3.5 w-3.5" />
                         </button>
-                        <button className="p-1.5 text-muted-foreground hover:text-foreground" title="Email Invoice" onClick={async () => {
-                          try {
-                            const res = await sendInvoiceEmail(inv.id);
-                            if (res.success) {
-                              alert("Invoice sent to customer.");
-                            } else {
-                              alert(res.error || "Failed to send email.");
+                        <button
+                          className="p-1.5 text-muted-foreground hover:text-foreground"
+                          title="Email Invoice"
+                          onClick={async () => {
+                            try {
+                              const res = await sendInvoiceEmail(inv.id);
+                              if (res.success) {
+                                alert("Invoice sent to customer.");
+                              } else {
+                                alert(res.error || "Failed to send email.");
+                              }
+                            } catch {
+                              alert("Failed to send email.");
                             }
-                          } catch {
-                            alert("Failed to send email.");
-                          }
-                        }}>
+                          }}
+                        >
                           <Mail className="h-3.5 w-3.5" />
                         </button>
                         {inv.status === "draft" && (
-                          <button className="p-1.5 text-muted-foreground hover:text-emerald-600" title="Mark Paid" disabled={statusLoading} onClick={async () => {
-                            setStatusLoading(true);
-                            try {
-                              const res = await updateInvoiceStatus(inv.id, "paid");
-                              if (res.success) refetch();
-                            } finally {
-                              setStatusLoading(false);
-                            }
-                          }}>
+                          <button
+                            className="p-1.5 text-muted-foreground hover:text-emerald-600"
+                            title="Mark Paid"
+                            disabled={statusLoading}
+                            onClick={async () => {
+                              setStatusLoading(true);
+                              try {
+                                const res = await updateInvoiceStatus(inv.id, "paid");
+                                if (res.success) refetch();
+                              } finally {
+                                setStatusLoading(false);
+                              }
+                            }}
+                          >
                             <CheckCircle className="h-3.5 w-3.5" />
                           </button>
                         )}
                         {(inv.status === "draft" || inv.status === "issued") && (
-                          <button className="p-1.5 text-muted-foreground hover:text-red-600" title="Cancel" disabled={statusLoading} onClick={async () => {
-                            setStatusLoading(true);
-                            try {
-                              const res = await updateInvoiceStatus(inv.id, "cancelled");
-                              if (res.success) refetch();
-                            } finally {
-                              setStatusLoading(false);
-                            }
-                          }}>
+                          <button
+                            className="p-1.5 text-muted-foreground hover:text-red-600"
+                            title="Cancel"
+                            disabled={statusLoading}
+                            onClick={async () => {
+                              setStatusLoading(true);
+                              try {
+                                const res = await updateInvoiceStatus(inv.id, "cancelled");
+                                if (res.success) refetch();
+                              } finally {
+                                setStatusLoading(false);
+                              }
+                            }}
+                          >
                             <XCircle className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -327,11 +418,29 @@ export function InvoicesTable() {
 
           {/* Pagination */}
           <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
-            <span>{invResult.total} invoice{invResult.total !== 1 ? "s" : ""}</span>
+            <span>
+              {invResult.total} invoice{invResult.total !== 1 ? "s" : ""}
+            </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-xs">{page} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-xs">
+                {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         </>
@@ -348,10 +457,17 @@ export function InvoicesTable() {
                   {detailData?.invoice?.invoice_number || "Invoice"}
                 </h2>
                 {detailData?.order?.order_number && (
-                  <p className="text-xs text-muted-foreground mt-1">Order: {detailData.order.order_number}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Order: {detailData.order.order_number}
+                  </p>
                 )}
               </div>
-              <button onClick={() => setDetailOpen(false)} className="text-muted-foreground hover:text-foreground text-lg leading-none">&times;</button>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-lg leading-none"
+              >
+                &times;
+              </button>
             </div>
 
             {detailLoading ? (
@@ -363,15 +479,29 @@ export function InvoicesTable() {
             ) : detailData ? (
               <>
                 <div className="mb-6 p-4 bg-neutral/50 text-sm space-y-1.5">
-                  <p><span className="text-muted-foreground">Status: </span><StatusBadge status={detailData.invoice.status} /></p>
-                  <p><span className="text-muted-foreground">Customer: </span>{detailData.invoice.customer_name}</p>
-                  <p><span className="text-muted-foreground">Email: </span>{detailData.invoice.customer_email}</p>
+                  <p>
+                    <span className="text-muted-foreground">Status: </span>
+                    <StatusBadge status={detailData.invoice.status} />
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Customer: </span>
+                    {detailData.invoice.customer_name}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Email: </span>
+                    {detailData.invoice.customer_email}
+                  </p>
                   {detailData.invoice.issued_at && (
-                    <p><span className="text-muted-foreground">Issued: </span>{new Date(detailData.invoice.issued_at).toLocaleDateString()}</p>
+                    <p>
+                      <span className="text-muted-foreground">Issued: </span>
+                      {new Date(detailData.invoice.issued_at).toLocaleDateString()}
+                    </p>
                   )}
                 </div>
 
-                <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Items</h3>
+                <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+                  Items
+                </h3>
                 <div className="border border-border/60 mb-6">
                   <table className="w-full text-sm">
                     <thead>
@@ -386,9 +516,15 @@ export function InvoicesTable() {
                       {detailData.items.map((item) => (
                         <tr key={item.id} className="border-b border-border/40">
                           <td className="px-3 py-2">{item.product_name}</td>
-                          <td className="px-3 py-2 text-center text-muted-foreground">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">${Number(item.unit_price).toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">${Number(item.total_price).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-center text-muted-foreground">
+                            {item.quantity}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            ${Number(item.unit_price).toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            ${Number(item.total_price).toFixed(2)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -396,34 +532,57 @@ export function InvoicesTable() {
                 </div>
 
                 <div className="text-sm space-y-1.5 ml-auto w-48">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${Number(detailData.invoice.subtotal).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>${Number(detailData.invoice.tax_amount).toFixed(2)}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>${Number(detailData.invoice.subtotal).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax</span>
+                    <span>${Number(detailData.invoice.tax_amount).toFixed(2)}</span>
+                  </div>
                   {Number(detailData.invoice.discount_amount) > 0 && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-${Number(detailData.invoice.discount_amount).toFixed(2)}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span>-${Number(detailData.invoice.discount_amount).toFixed(2)}</span>
+                    </div>
                   )}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span>${Number(detailData.invoice.shipping_amount).toFixed(2)}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span>${Number(detailData.invoice.shipping_amount).toFixed(2)}</span>
+                  </div>
                   <div className="flex justify-between font-semibold pt-2 border-t border-border/40">
-                    <span>Total</span><span>${Number(detailData.invoice.total_amount).toFixed(2)}</span>
+                    <span>Total</span>
+                    <span>${Number(detailData.invoice.total_amount).toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div className="mt-8 flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDownloadPDF(detailData.invoice as any)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleDownloadPDF(detailData.invoice as any)}
+                  >
                     <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
                   </Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={async () => {
-                    if (!selectedInvoiceId) return;
-                    try {
-                      const res = await sendInvoiceEmail(selectedInvoiceId);
-                      if (res.success) {
-                        alert("Invoice sent to customer.");
-                      } else {
-                        alert(res.error || "Failed to send email.");
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={async () => {
+                      if (!selectedInvoiceId) return;
+                      try {
+                        const res = await sendInvoiceEmail(selectedInvoiceId);
+                        if (res.success) {
+                          alert("Invoice sent to customer.");
+                        } else {
+                          alert(res.error || "Failed to send email.");
+                        }
+                      } catch {
+                        alert("Failed to send email.");
                       }
-                    } catch {
-                      alert("Failed to send email.");
-                    }
-                  }}>
+                    }}
+                  >
                     <Mail className="h-3.5 w-3.5 mr-1.5" /> Email
                   </Button>
                 </div>
@@ -436,7 +595,15 @@ export function InvoicesTable() {
   );
 }
 
-function Th({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+function Th({
+  children,
+  onClick,
+  className = "",
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+}) {
   return (
     <th
       className={`px-4 py-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium ${onClick ? "cursor-pointer hover:text-foreground" : ""} ${className}`}

@@ -75,14 +75,11 @@ function Pagination({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground pt-4">
-      <span>{total} order{total !== 1 ? "s" : ""}</span>
+      <span>
+        {total} order{total !== 1 ? "s" : ""}
+      </span>
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={page <= 1}
-          onClick={() => onPage(page - 1)}
-        >
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           Previous
         </Button>
         <span className="text-xs">
@@ -108,7 +105,13 @@ export function RecentOrdersTable() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const pageSize = 10;
 
-  const { result, loading, error, refetch } = useAdminOrders(page, pageSize, search, sortBy, sortDir);
+  const { result, loading, error, refetch } = useAdminOrders(
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
+  );
 
   function toggleSort(column: string) {
     if (sortBy === column) {
@@ -132,7 +135,10 @@ export function RecentOrdersTable() {
         <Input
           placeholder="Search orders…"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="max-w-60 h-9 text-sm"
         />
       </div>
@@ -150,18 +156,22 @@ export function RecentOrdersTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort("order_number")}>
-                    Order<SortIcon column="order_number" />
+                    Order
+                    <SortIcon column="order_number" />
                   </TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort("total")}>
-                    Total<SortIcon column="total" />
+                    Total
+                    <SortIcon column="total" />
                   </TableHead>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort("status")}>
-                    Status<SortIcon column="status" />
+                    Status
+                    <SortIcon column="status" />
                   </TableHead>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort("created_at")}>
-                    Date<SortIcon column="created_at" />
+                    Date
+                    <SortIcon column="created_at" />
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -172,12 +182,20 @@ export function RecentOrdersTable() {
                       {order.order_number ?? order.id.slice(0, 8)}
                     </TableCell>
                     <TableCell>{order.customer_name}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{order.customer_email}</TableCell>
-                    <TableCell className="font-serif">${Number(order.total).toLocaleString()}</TableCell>
-                    <TableCell><StatusBadge status={order.status} /></TableCell>
+                    <TableCell className="text-muted-foreground text-xs">
+                      {order.customer_email}
+                    </TableCell>
+                    <TableCell className="font-serif">
+                      ${Number(order.total).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={order.status} />
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(order.created_at).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
                       })}
                     </TableCell>
                   </TableRow>

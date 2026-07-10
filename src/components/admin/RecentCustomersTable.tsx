@@ -56,13 +56,22 @@ function Pagination({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground pt-4">
-      <span>{total} customer{total !== 1 ? "s" : ""}</span>
+      <span>
+        {total} customer{total !== 1 ? "s" : ""}
+      </span>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           Previous
         </Button>
-        <span className="text-xs">Page {page} of {totalPages}</span>
-        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
+        <span className="text-xs">
+          Page {page} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= totalPages}
+          onClick={() => onPage(page + 1)}
+        >
           Next
         </Button>
       </div>
@@ -115,7 +124,10 @@ export function RecentCustomersTable() {
         <Input
           placeholder="Search customers…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            setPage(1);
+          }}
           className="max-w-60 h-9 text-sm"
         />
       </div>
@@ -131,15 +143,21 @@ export function RecentCustomersTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort("first_name")}>
-                    Customer<SortIcon column="first_name" />
+                    Customer
+                    <SortIcon column="first_name" />
                   </TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort("created_at")}>
-                    Registration Date<SortIcon column="created_at" />
+                    Registration Date
+                    <SortIcon column="created_at" />
                   </TableHead>
-                  <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("total_orders")}>
-                    Total Orders<SortIcon column="total_orders" />
+                  <TableHead
+                    className="cursor-pointer text-right"
+                    onClick={() => toggleSort("total_orders")}
+                  >
+                    Total Orders
+                    <SortIcon column="total_orders" />
                   </TableHead>
                   <TableHead>Last Activity</TableHead>
                 </TableRow>
@@ -154,13 +172,17 @@ export function RecentCustomersTable() {
                     <TableCell className="text-xs capitalize">{c.role}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(c.created_at).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
                       })}
                     </TableCell>
                     <TableCell className="text-right">{c.total_orders}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(c.updated_at).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
                       })}
                     </TableCell>
                   </TableRow>

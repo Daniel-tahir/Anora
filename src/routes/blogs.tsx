@@ -6,7 +6,11 @@ export const Route = createFileRoute("/blogs")({
   head: () => ({
     meta: [
       { title: "Journal — ANORA" },
-      { name: "description", content: "Stories from the ANORA atelier — craft, material, and the quiet pleasures of dress." },
+      {
+        name: "description",
+        content:
+          "Stories from the ANORA atelier — craft, material, and the quiet pleasures of dress.",
+      },
       { property: "og:title", content: "Journal — ANORA" },
     ],
   }),
@@ -22,7 +26,8 @@ function Blogs() {
       blogPosts.filter(
         (b) =>
           (cat === "All" || b.category === cat) &&
-          (b.title.toLowerCase().includes(q.toLowerCase()) || b.excerpt.toLowerCase().includes(q.toLowerCase())),
+          (b.title.toLowerCase().includes(q.toLowerCase()) ||
+            b.excerpt.toLowerCase().includes(q.toLowerCase())),
       ),
     [q, cat],
   );
@@ -33,8 +38,7 @@ function Blogs() {
         <span className="eyebrow">The Journal</span>
         <h1 className="font-serif text-5xl md:text-6xl mt-4">Quiet dispatches</h1>
         <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
-          Stories from the atelier — craft, material, and the quiet pleasures
-          of dress.
+          Stories from the atelier — craft, material, and the quiet pleasures of dress.
         </p>
       </div>
 
@@ -51,7 +55,9 @@ function Blogs() {
               key={c}
               onClick={() => setCat(c)}
               className={`text-[11px] tracking-[0.28em] uppercase px-4 py-2 border transition-colors ${
-                cat === c ? "border-foreground" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                cat === c
+                  ? "border-foreground"
+                  : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
               }`}
             >
               {c}
@@ -64,10 +70,19 @@ function Blogs() {
         {filtered.map((b) => (
           <Link key={b.slug} to="/blogs/$slug" params={{ slug: b.slug }} className="group block">
             <div className="overflow-hidden aspect-[4/3] bg-neutral">
-              <img src={b.cover} alt={b.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-[1200ms] group-hover:scale-105" />
+              <img
+                src={b.cover}
+                alt={b.title}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-[1200ms] group-hover:scale-105"
+              />
             </div>
-            <p className="eyebrow mt-5">{b.category} · {b.readTime}</p>
-            <h3 className="font-serif text-2xl mt-3 group-hover:text-gold transition-colors">{b.title}</h3>
+            <p className="eyebrow mt-5">
+              {b.category} · {b.readTime}
+            </p>
+            <h3 className="font-serif text-2xl mt-3 group-hover:text-gold transition-colors">
+              {b.title}
+            </h3>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{b.excerpt}</p>
           </Link>
         ))}

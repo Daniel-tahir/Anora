@@ -175,8 +175,6 @@ export const products: Product[] = [
   },
 ];
 
-export const getProduct = (slug: string) => products.find((p) => p.slug === slug);
-
 export interface BlogPost {
   slug: string;
   title: string;
@@ -248,7 +246,7 @@ export const faqs = [
   },
   {
     q: "Which payment methods do you accept?",
-    a: "We accept all major credit cards, PayPal, Stripe, and Cash on Delivery within select regions.",
+    a: "We accept all major credit cards, debit cards, Apple Pay, Google Pay, and other payment methods supported by Stripe.",
   },
   {
     q: "How can I track my order?",

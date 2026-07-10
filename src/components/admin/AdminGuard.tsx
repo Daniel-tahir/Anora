@@ -16,7 +16,11 @@ export function AdminGuard({ children }: AdminGuardProps) {
     if (loading) return;
 
     if (!user) {
-      navigate({ to: "/login", search: { redirectTo: "/admin", confirmed: undefined }, replace: true });
+      navigate({
+        to: "/login",
+        search: { redirectTo: "/admin", confirmed: undefined },
+        replace: true,
+      });
       return;
     }
 
@@ -28,7 +32,11 @@ export function AdminGuard({ children }: AdminGuardProps) {
     // Server-side role verification via RPC
     supabase.rpc("has_admin_role", { required: "admin" }).then(({ data, error }) => {
       if (error || !data) {
-        navigate({ to: "/login", search: { redirectTo: "/admin", confirmed: undefined }, replace: true });
+        navigate({
+          to: "/login",
+          search: { redirectTo: "/admin", confirmed: undefined },
+          replace: true,
+        });
         return;
       }
       setServerVerified(true);

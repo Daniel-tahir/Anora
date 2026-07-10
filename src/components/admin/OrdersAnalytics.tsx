@@ -5,7 +5,19 @@ import {
   type OrdersByCategoryItem,
 } from "@/lib/admin-analytics";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#f59e0b",
@@ -19,8 +31,16 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS = [
-  "#6366f1", "#ec4899", "#14b8a6", "#f97316", "#8b5cf6",
-  "#06b6d4", "#84cc16", "#e11d48", "#0ea5e9", "#a855f7",
+  "#6366f1",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#8b5cf6",
+  "#06b6d4",
+  "#84cc16",
+  "#e11d48",
+  "#0ea5e9",
+  "#a855f7",
 ];
 
 function EmptyState({ message }: { message: string }) {
@@ -58,7 +78,13 @@ function OrdersByStatusChartContent({ data }: { data: OrdersByStatusItem[] }) {
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11 }} className="text-muted-foreground" tickLine={false} axisLine={false} />
+        <XAxis
+          type="number"
+          tick={{ fontSize: 11 }}
+          className="text-muted-foreground"
+          tickLine={false}
+          axisLine={false}
+        />
         <YAxis
           type="category"
           dataKey="status"
@@ -124,9 +150,7 @@ function OrdersByCategoryChartContent({ data }: { data: OrdersByCategoryItem[] }
           }}
         />
         <Legend
-          formatter={(value) => (
-            <span className="text-xs text-muted-foreground">{value}</span>
-          )}
+          formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
         />
       </PieChart>
     </ResponsiveContainer>

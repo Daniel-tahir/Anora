@@ -1,11 +1,28 @@
 import { useState } from "react";
 import {
-  useGiftCardsManagement, useGiftCardDetails, useGiftCardAnalytics,
-  createGiftCard, toggleGiftCardStatus, type GiftCardRow, type GiftCardTransaction,
+  useGiftCardsManagement,
+  useGiftCardDetails,
+  useGiftCardAnalytics,
+  createGiftCard,
+  toggleGiftCardStatus,
+  type GiftCardRow,
+  type GiftCardTransaction,
 } from "@/lib/admin-gift-cards";
 import { DashboardCard } from "@/components/admin/DashboardCard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Gift, CreditCard, RefreshCw, ArrowUpDown, Plus, Search, Eye } from "lucide-react";
 
@@ -20,7 +37,14 @@ export function GiftCardsTable() {
   const [showAdd, setShowAdd] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
 
-  const { result, loading, error, refetch } = useGiftCardsManagement(page, PAGE_SIZE, search, sortBy, sortDir, statusFilter);
+  const { result, loading, error, refetch } = useGiftCardsManagement(
+    page,
+    PAGE_SIZE,
+    search,
+    sortBy,
+    sortDir,
+    statusFilter,
+  );
   const { data: analytics, refetch: refetchAnalytics } = useGiftCardAnalytics();
 
   const totalPages = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
@@ -47,7 +71,13 @@ export function GiftCardsTable() {
       expired: "text-red/60",
       depleted: "text-amber-600 dark:text-amber-400",
     };
-    return <span className={`text-[11px] tracking-wider uppercase ${colors[status] ?? "text-muted-foreground"}`}>{status}</span>;
+    return (
+      <span
+        className={`text-[11px] tracking-wider uppercase ${colors[status] ?? "text-muted-foreground"}`}
+      >
+        {status}
+      </span>
+    );
   }
 
   async function handleToggle(cardId: string) {
@@ -65,11 +95,31 @@ export function GiftCardsTable() {
       {/* Analytics Cards */}
       {analytics && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <DashboardCard label="Total" value={analytics.total_gift_cards.toLocaleString()} icon={<Gift className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />} />
-          <DashboardCard label="Active" value={analytics.active_gift_cards.toLocaleString()} icon={<CreditCard className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />} />
-          <DashboardCard label="Outstanding Balance" value={`$${analytics.outstanding_balance.toLocaleString()}`} icon={<CreditCard className="h-4 w-4 text-sky-600 dark:text-sky-400" />} />
-          <DashboardCard label="Total Redeemed" value={`$${analytics.total_redeemed.toLocaleString()}`} icon={<CreditCard className="h-4 w-4 text-amber-600 dark:text-amber-400" />} />
-          <DashboardCard label="Transactions" value={analytics.total_transactions.toLocaleString()} icon={<RefreshCw className="h-4 w-4 text-purple-600 dark:text-purple-400" />} />
+          <DashboardCard
+            label="Total"
+            value={analytics.total_gift_cards.toLocaleString()}
+            icon={<Gift className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
+          />
+          <DashboardCard
+            label="Active"
+            value={analytics.active_gift_cards.toLocaleString()}
+            icon={<CreditCard className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+          />
+          <DashboardCard
+            label="Outstanding Balance"
+            value={`$${analytics.outstanding_balance.toLocaleString()}`}
+            icon={<CreditCard className="h-4 w-4 text-sky-600 dark:text-sky-400" />}
+          />
+          <DashboardCard
+            label="Total Redeemed"
+            value={`$${analytics.total_redeemed.toLocaleString()}`}
+            icon={<CreditCard className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+          />
+          <DashboardCard
+            label="Transactions"
+            value={analytics.total_transactions.toLocaleString()}
+            icon={<RefreshCw className="h-4 w-4 text-purple-600 dark:text-purple-400" />}
+          />
         </div>
       )}
 
@@ -82,13 +132,19 @@ export function GiftCardsTable() {
             placeholder="Search by code..."
             className="w-full border border-border/60 bg-transparent py-2 pl-10 pr-4 text-sm outline-none focus:border-foreground/30 transition-colors"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <select
           className="border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
@@ -103,7 +159,10 @@ export function GiftCardsTable() {
           <Plus className="h-3 w-3" /> Add Gift Card
         </button>
         <button
-          onClick={() => { refetch(); refetchAnalytics(); }}
+          onClick={() => {
+            refetch();
+            refetchAnalytics();
+          }}
           className="border border-border/60 p-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
@@ -120,58 +179,86 @@ export function GiftCardsTable() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 bg-neutral/30">
-              <Th onClick={() => toggleSort("code")}><SortIcon col="code" /> Code</Th>
-              <Th onClick={() => toggleSort("initial_balance")}><SortIcon col="initial_balance" /> Initial</Th>
-              <Th onClick={() => toggleSort("current_balance")}><SortIcon col="current_balance" /> Current</Th>
-              <Th onClick={() => toggleSort("status")}><SortIcon col="status" /> Status</Th>
+              <Th onClick={() => toggleSort("code")}>
+                <SortIcon col="code" /> Code
+              </Th>
+              <Th onClick={() => toggleSort("initial_balance")}>
+                <SortIcon col="initial_balance" /> Initial
+              </Th>
+              <Th onClick={() => toggleSort("current_balance")}>
+                <SortIcon col="current_balance" /> Current
+              </Th>
+              <Th onClick={() => toggleSort("status")}>
+                <SortIcon col="status" /> Status
+              </Th>
               <Th>Usage</Th>
-              <Th onClick={() => toggleSort("expires_at")}><SortIcon col="expires_at" /> Expires</Th>
-              <Th onClick={() => toggleSort("created_at")}><SortIcon col="created_at" /> Created</Th>
+              <Th onClick={() => toggleSort("expires_at")}>
+                <SortIcon col="expires_at" /> Expires
+              </Th>
+              <Th onClick={() => toggleSort("created_at")}>
+                <SortIcon col="created_at" /> Created
+              </Th>
               <Th className="text-right">Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {loading && !result && (
+            {loading &&
+              !result &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-border/40">
                   {Array.from({ length: 8 }).map((_, j) => (
-                    <td key={j} className="px-3 py-3"><Skeleton className="h-4 w-20" /></td>
+                    <td key={j} className="px-3 py-3">
+                      <Skeleton className="h-4 w-20" />
+                    </td>
                   ))}
                 </tr>
-              ))
-            )}
+              ))}
             {result && result.gift_cards.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-muted-foreground">No gift cards found.</td>
-              </tr>
-            )}
-            {result && result.gift_cards.map((g) => (
-              <tr key={g.id} className="border-b border-border/40 hover:bg-neutral/20 transition-colors">
-                <td className="px-3 py-3 font-mono text-xs">{g.code}</td>
-                <td className="px-3 py-3 tabular-nums">${g.initial_balance.toFixed(2)}</td>
-                <td className="px-3 py-3 tabular-nums">${g.current_balance.toFixed(2)}</td>
-                <td className="px-3 py-3">{statusBadge(g.status)}</td>
-                <td className="px-3 py-3 tabular-nums">{g.usage_count}</td>
-                <td className="px-3 py-3 text-muted-foreground">{g.expires_at ? new Date(g.expires_at).toLocaleDateString() : "—"}</td>
-                <td className="px-3 py-3 text-muted-foreground">{new Date(g.created_at).toLocaleDateString()}</td>
-                <td className="px-3 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setViewing(g.id)}
-                      className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Eye className="h-3.5 w-3.5 inline mr-1" /> View
-                    </button>
-                    <button
-                      onClick={() => handleToggle(g.id)}
-                      className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {g.status === "active" ? "Deactivate" : g.status === "inactive" ? "Activate" : "—"}
-                    </button>
-                  </div>
+                <td colSpan={8} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                  No gift cards found.
                 </td>
               </tr>
-            ))}
+            )}
+            {result &&
+              result.gift_cards.map((g) => (
+                <tr
+                  key={g.id}
+                  className="border-b border-border/40 hover:bg-neutral/20 transition-colors"
+                >
+                  <td className="px-3 py-3 font-mono text-xs">{g.code}</td>
+                  <td className="px-3 py-3 tabular-nums">${g.initial_balance.toFixed(2)}</td>
+                  <td className="px-3 py-3 tabular-nums">${g.current_balance.toFixed(2)}</td>
+                  <td className="px-3 py-3">{statusBadge(g.status)}</td>
+                  <td className="px-3 py-3 tabular-nums">{g.usage_count}</td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {g.expires_at ? new Date(g.expires_at).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {new Date(g.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setViewing(g.id)}
+                        className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5 inline mr-1" /> View
+                      </button>
+                      <button
+                        onClick={() => handleToggle(g.id)}
+                        className="px-2 py-1 text-[11px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {g.status === "active"
+                          ? "Deactivate"
+                          : g.status === "inactive"
+                            ? "Activate"
+                            : "—"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -179,9 +266,7 @@ export function GiftCardsTable() {
       {/* Pagination */}
       {result && totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-[11px] tracking-[0.2em] text-muted-foreground">
-            {result.total} total
-          </p>
+          <p className="text-[11px] tracking-[0.2em] text-muted-foreground">{result.total} total</p>
           <div className="flex items-center gap-2">
             <button
               disabled={page === 1}
@@ -217,22 +302,29 @@ export function GiftCardsTable() {
       {showAdd && (
         <GiftCardFormDialog
           onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); refetch(); refetchAnalytics(); }}
+          onSaved={() => {
+            setShowAdd(false);
+            refetch();
+            refetchAnalytics();
+          }}
         />
       )}
 
       {/* View Details Drawer */}
-      {viewing && (
-        <GiftCardDetailsDrawer
-          giftCardId={viewing}
-          onClose={() => setViewing(null)}
-        />
-      )}
+      {viewing && <GiftCardDetailsDrawer giftCardId={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
 
-function Th({ children, onClick, className }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+function Th({
+  children,
+  onClick,
+  className,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+}) {
   return (
     <th
       onClick={onClick}
@@ -286,7 +378,9 @@ function GiftCardFormDialog({ onClose, onSaved }: { onClose: () => void; onSaved
             <DialogDescription>Share this code with the recipient.</DialogDescription>
           </DialogHeader>
           <div className="text-center py-6 space-y-4">
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground">Gift Card Code</p>
+            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground">
+              Gift Card Code
+            </p>
             <p className="font-mono text-2xl tracking-[0.3em]">{result.code}</p>
             <p className="text-xs text-muted-foreground">This code will not be shown again.</p>
             <button
@@ -311,7 +405,9 @@ function GiftCardFormDialog({ onClose, onSaved }: { onClose: () => void; onSaved
         <form onSubmit={handleSubmit} className="space-y-4">
           {formError && <p className="text-sm text-red/80 bg-red/5 p-3">{formError}</p>}
           <div>
-            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Initial Balance ($)</label>
+            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+              Initial Balance ($)
+            </label>
             <input
               required
               type="number"
@@ -324,7 +420,9 @@ function GiftCardFormDialog({ onClose, onSaved }: { onClose: () => void; onSaved
             />
           </div>
           <div>
-            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Expires At (optional)</label>
+            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+              Expires At (optional)
+            </label>
             <input
               type="datetime-local"
               className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
@@ -333,7 +431,9 @@ function GiftCardFormDialog({ onClose, onSaved }: { onClose: () => void; onSaved
             />
           </div>
           <div>
-            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">Notes (optional)</label>
+            <label className="block text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-1.5">
+              Notes (optional)
+            </label>
             <input
               className="w-full border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground/30"
               value={notes}
@@ -363,7 +463,13 @@ function GiftCardFormDialog({ onClose, onSaved }: { onClose: () => void; onSaved
   );
 }
 
-function GiftCardDetailsDrawer({ giftCardId, onClose }: { giftCardId: string; onClose: () => void }) {
+function GiftCardDetailsDrawer({
+  giftCardId,
+  onClose,
+}: {
+  giftCardId: string;
+  onClose: () => void;
+}) {
   const { details, loading, error } = useGiftCardDetails(giftCardId);
 
   return (
@@ -371,9 +477,7 @@ function GiftCardDetailsDrawer({ giftCardId, onClose }: { giftCardId: string; on
       <SheetContent className="sm:max-w-xl w-full overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Gift Card Details</SheetTitle>
-          <SheetDescription>
-            Balance history and transaction log.
-          </SheetDescription>
+          <SheetDescription>Balance history and transaction log.</SheetDescription>
         </SheetHeader>
 
         {loading && (
@@ -395,19 +499,29 @@ function GiftCardDetailsDrawer({ giftCardId, onClose }: { giftCardId: string; on
               <p className="font-mono text-lg tracking-[0.2em]">{details.code}</p>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">Initial Balance</p>
+                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">
+                    Initial Balance
+                  </p>
                   <p className="tabular-nums mt-1">${details.initial_balance.toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">Current Balance</p>
-                  <p className="tabular-nums mt-1 font-medium">${details.current_balance.toFixed(2)}</p>
+                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">
+                    Current Balance
+                  </p>
+                  <p className="tabular-nums mt-1 font-medium">
+                    ${details.current_balance.toFixed(2)}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">Status</p>
+                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">
+                    Status
+                  </p>
                   <p className="mt-1 capitalize">{details.status}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">Usage Count</p>
+                  <p className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground">
+                    Usage Count
+                  </p>
                   <p className="tabular-nums mt-1">{details.usage_count}</p>
                 </div>
               </div>
@@ -415,14 +529,20 @@ function GiftCardDetailsDrawer({ giftCardId, onClose }: { giftCardId: string; on
 
             {/* Balance Progress */}
             <div className="space-y-2">
-              <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground">Balance Used</p>
+              <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground">
+                Balance Used
+              </p>
               <div className="h-2 bg-neutral/40 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-foreground/60 rounded-full transition-all"
                   style={{
-                    width: `${details.initial_balance > 0
-                      ? ((details.initial_balance - details.current_balance) / details.initial_balance * 100)
-                      : 0}%`,
+                    width: `${
+                      details.initial_balance > 0
+                        ? ((details.initial_balance - details.current_balance) /
+                            details.initial_balance) *
+                          100
+                        : 0
+                    }%`,
                   }}
                 />
               </div>
@@ -442,10 +562,17 @@ function GiftCardDetailsDrawer({ giftCardId, onClose }: { giftCardId: string; on
               ) : (
                 <div className="space-y-2">
                   {details.transactions.map((t: GiftCardTransaction) => (
-                    <div key={t.id} className="border border-border/40 p-3 text-sm flex items-center justify-between">
+                    <div
+                      key={t.id}
+                      className="border border-border/40 p-3 text-sm flex items-center justify-between"
+                    >
                       <div>
-                        <p className="text-[11px] tracking-wider uppercase text-muted-foreground">{t.transaction_type}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{new Date(t.created_at).toLocaleString()}</p>
+                        <p className="text-[11px] tracking-wider uppercase text-muted-foreground">
+                          {t.transaction_type}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(t.created_at).toLocaleString()}
+                        </p>
                         {t.notes && <p className="text-xs text-muted-foreground mt-1">{t.notes}</p>}
                       </div>
                       <div className="text-right">

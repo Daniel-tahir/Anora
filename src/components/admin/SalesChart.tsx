@@ -1,6 +1,15 @@
 import { useSalesAnalytics, type SalesDataPoint } from "@/lib/admin-analytics";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { useState } from "react";
 
 type Period = "daily" | "weekly" | "monthly" | "yearly";
@@ -83,7 +92,9 @@ function ChartContent({ data, period }: ChartContentProps) {
         />
         <Legend
           formatter={(value) => (
-            <span className="text-xs text-muted-foreground">{value === "sales" ? "Revenue" : "Orders"}</span>
+            <span className="text-xs text-muted-foreground">
+              {value === "sales" ? "Revenue" : "Orders"}
+            </span>
           )}
         />
         <Bar
@@ -145,9 +156,7 @@ export function SalesChart() {
         </div>
       )}
 
-      {loading && !error && (
-        <Skeleton className="h-[320px] w-full rounded-lg" />
-      )}
+      {loading && !error && <Skeleton className="h-[320px] w-full rounded-lg" />}
 
       {!loading && !error && data && <ChartContent data={data} period={period} />}
     </div>

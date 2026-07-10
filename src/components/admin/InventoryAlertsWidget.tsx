@@ -40,18 +40,24 @@ export function InventoryAlertsWidget() {
       </CardHeader>
       <CardContent className="space-y-2">
         {alerts.map((alert) => (
-          <div
-            key={alert.id}
-            className="flex items-center justify-between rounded-md border p-3"
-          >
+          <div key={alert.id} className="flex items-center justify-between rounded-md border p-3">
             <div className="flex items-center gap-3">
-              <Badge variant={alertColors[alert.alert_type] as "destructive" | "secondary" | "default" | "outline" ?? "outline"}>
+              <Badge
+                variant={
+                  (alertColors[alert.alert_type] as
+                    | "destructive"
+                    | "secondary"
+                    | "default"
+                    | "outline") ?? "outline"
+                }
+              >
                 {alert.alert_type}
               </Badge>
               <div>
                 <p className="font-medium text-sm">{alert.product_name}</p>
                 <p className="text-xs text-muted-foreground">
-                  SKU: {alert.product_sku ?? "—"} &middot; Stock: {alert.current_stock} &middot; Threshold: {alert.threshold}
+                  SKU: {alert.product_sku ?? "—"} &middot; Stock: {alert.current_stock} &middot;
+                  Threshold: {alert.threshold}
                 </p>
               </div>
             </div>

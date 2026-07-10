@@ -8,7 +8,7 @@ interface Payload {
 
 serve(async (req) => {
   try {
-    const { invoice_id } = await req.json() as Payload;
+    const { invoice_id } = (await req.json()) as Payload;
     if (!invoice_id) {
       return new Response(JSON.stringify({ error: "invoice_id is required" }), { status: 400 });
     }
@@ -30,9 +30,12 @@ serve(async (req) => {
 
     const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
-    const itemsHtml = invoice.invoice_items.map((item: any) =>
-      `<tr><td>${item.product_name}</td><td>${item.quantity}</td><td>$${Number(item.unit_price).toFixed(2)}</td><td>$${Number(item.total_price).toFixed(2)}</td></tr>`
-    ).join("");
+    const itemsHtml = invoice.invoice_items
+      .map(
+        (item: any) =>
+          `<tr><td>${item.product_name}</td><td>${item.quantity}</td><td>$${Number(item.unit_price).toFixed(2)}</td><td>$${Number(item.total_price).toFixed(2)}</td></tr>`,
+      )
+      .join("");
 
     await resend.emails.send({
       from: Deno.env.get("FROM_EMAIL") || "invoices@anora-elegance.com",
@@ -66,8 +69,11 @@ serve(async (req) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }), {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
+      {
+        status: 500,
+      },
+    );
   }
 });

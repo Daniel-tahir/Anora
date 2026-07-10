@@ -39,7 +39,11 @@ function RegisterPage() {
           We've sent a confirmation link to <strong className="text-foreground">{email}</strong>.
           Click the link to activate your account.
         </p>
-        <Link to="/login" search={{ redirectTo: "/account", confirmed: undefined }} className="inline-block mt-8 text-[11px] tracking-[0.32em] uppercase hover-underline">
+        <Link
+          to="/login"
+          search={{ redirectTo: "/account", confirmed: undefined }}
+          className="inline-block mt-8 text-[11px] tracking-[0.32em] uppercase hover-underline"
+        >
           Back to sign in
         </Link>
       </div>
@@ -60,7 +64,12 @@ function RegisterPage() {
     }
 
     setSubmitting(true);
-    const { error: signUpError, needsConfirmation } = await signUp(email, password, firstName, lastName);
+    const { error: signUpError, needsConfirmation } = await signUp(
+      email,
+      password,
+      firstName,
+      lastName,
+    );
     setSubmitting(false);
 
     if (signUpError) {
@@ -85,7 +94,9 @@ function RegisterPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">{error}</p>
+          <p className="text-[11px] tracking-wider uppercase text-red/80 bg-red/5 border border-red/20 px-4 py-3">
+            {error}
+          </p>
         )}
 
         <div className="grid grid-cols-2 gap-3">
@@ -163,17 +174,33 @@ function RegisterPage() {
 
         <p className="text-center text-xs text-muted-foreground pt-2">
           Already have an account?{" "}
-          <Link to="/login" search={{ redirectTo: "/account", confirmed: undefined }} className="hover-underline">Sign in</Link>
+          <Link
+            to="/login"
+            search={{ redirectTo: "/account", confirmed: undefined }}
+            className="hover-underline"
+          >
+            Sign in
+          </Link>
         </p>
       </form>
     </div>
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: boolean; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">{label}</span>
+      <span className="block text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-2">
+        {label}
+      </span>
       {children}
     </label>
   );

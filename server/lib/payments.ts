@@ -1,8 +1,11 @@
 import crypto from "node:crypto";
-import { products } from "@/lib/products";
-import { validateStockBeforeCheckout, type CheckoutLine } from "@/lib/inventory";
-import { validateCartItems } from "./cart-validation";
-import { supabaseAdmin } from "./supabase-admin";
+import type Stripe from "stripe";
+import { env } from "../config/env";
+import { logger } from "../lib/logger";
+import { PaymentError } from "../lib/errors";
+import { getContainer } from "../container";
+import { validateCartItems, type CartItemInput } from "./cart-validation";
+import { calculateTotals } from "./totals";
 
 export interface CheckoutItemInput {
   productId: string;
@@ -12,101 +15,247 @@ export interface CheckoutItemInput {
 }
 
 export interface CheckoutAddress {
-  firstName?: string;
-  lastName?: string;
-  line1?: string;
+  firstName: string;
+  lastName: string;
+  line1: string;
   line2?: string;
-  city?: string;
+  city: string;
   state?: string;
-  postalCode?: string;
-  country?: string;
-  phone?: string;
+  postalCode: string;
+  country: string;
+  phone: string;
 }
 
 export interface CreateCheckoutSessionInput {
   userId: string;
   email: string;
   items: CheckoutItemInput[];
-  shippingAddress?: CheckoutAddress;
+  shippingAddress: CheckoutAddress;
   billingAddress?: CheckoutAddress;
   successUrl?: string;
   cancelUrl?: string;
-  checkoutSessionToken?: string;
 }
 
 export interface CheckoutSessionResult {
-  orderId: string;
-  orderNumber: string;
   checkoutUrl: string;
 }
 
-export interface WebhookResult {
-  ok: boolean;
-  processed: boolean;
-  message: string;
-}
-
-interface StripeSessionResponse {
+export interface CreatePaymentIntentResult {
+  clientSecret: string;
   id: string;
-  url: string | null;
-  payment_intent: string | null;
+  amount: number;
+  paymentMethodTypes: string[];
+  validatedItems: Array<{
+    productId: string;
+    name: string;
+    unitPrice: number;
+    quantity: number;
+    size: string;
+    variantId: string | null;
+  }>;
+  totals: {
+    subtotal: number;
+    shipping: number;
+    tax: number;
+    discount: number;
+    total: number;
+    currency: string;
+  };
 }
 
-function readEnv(name: string) {
-  if (typeof process !== "undefined" && process.env?.[name]) {
-    return process.env[name];
+export interface PayPalCreateOrderResult {
+  id: string;
+  approveUrl: string;
+}
+
+export async function createPaymentIntent(
+  input: CreateCheckoutSessionInput & {
+    idempotencyKey?: string;
+    checkoutRequestId?: string;
+    browser?: string;
+    ipAddress?: string;
+    deviceType?: string;
+  },
+): Promise<CreatePaymentIntentResult> {
+  const container = getContainer();
+
+  const itemsWithPrice: CartItemInput[] = input.items.map((item) => ({
+    productId: item.productId,
+    variantId: item.variantId,
+    size: item.size,
+    quantity: item.quantity,
+  }));
+
+  const validation = await validateCartItems(itemsWithPrice);
+  if (!validation.ok) {
+    throw new PaymentError(validation.error ?? "Cart validation failed");
   }
-  if (typeof import.meta !== "undefined" && import.meta.env?.[name]) {
-    return import.meta.env[name];
+
+  const totals = calculateTotals(validation.items);
+  const amountInCents = Math.round(totals.total * 100);
+
+  const metadata: Record<string, string> = {
+    user_id: input.userId,
+    email: input.email,
+    subtotal: String(totals.subtotal),
+    total: String(totals.total),
+    currency: totals.currency,
+    shipping_address: JSON.stringify(input.shippingAddress),
+    validated_items: JSON.stringify(
+      validation.items.map((v) => ({
+        productId: v.productId,
+        variantId: v.variantId,
+        size: v.size,
+        quantity: v.quantity,
+        unitPrice: v.unitPrice,
+        productName: v.productName,
+      })),
+    ),
+  };
+
+  if (input.billingAddress) {
+    metadata.billing_address = JSON.stringify(input.billingAddress);
   }
-  return "";
-}
-
-function clampMoney(value: number) {
-  return Number(Math.max(0, value).toFixed(2));
-}
-
-function buildOrderNumber() {
-  return `ANR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-}
-
-function getProduct(productId: string) {
-  return products.find((product) => product.id === productId);
-}
-
-function getUnitPrice(productId: string) {
-  const product = getProduct(productId);
-  if (!product) throw new Error(`Unknown product: ${productId}`);
-  return product.price;
-}
-
-function readStripeConfig() {
-  const secretKey = readEnv("STRIPE_SECRET_KEY");
-  const webhookSecret = readEnv("STRIPE_WEBHOOK_SECRET");
-  const publicUrl = readEnv("PUBLIC_APP_URL") || "http://localhost:5173";
-
-  if (!secretKey) {
-    throw new Error("Stripe secret key is not configured");
+  if (input.checkoutRequestId) {
+    metadata.checkout_request_id = input.checkoutRequestId;
   }
 
-  return { secretKey, webhookSecret, publicUrl };
+  const params: Stripe.PaymentIntentCreateParams = {
+    amount: amountInCents,
+    currency: totals.currency,
+    automatic_payment_methods: { enabled: true },
+    metadata,
+    receipt_email: input.email,
+    shipping: {
+      name: `${input.shippingAddress.firstName} ${input.shippingAddress.lastName}`,
+      address: {
+        line1: input.shippingAddress.line1,
+        line2: input.shippingAddress.line2,
+        city: input.shippingAddress.city,
+        state: input.shippingAddress.state,
+        postal_code: input.shippingAddress.postalCode,
+        country: input.shippingAddress.country,
+      },
+      phone: input.shippingAddress.phone,
+    },
+  };
+
+  const paymentIntent = await container.stripe.paymentIntents.create(params, {
+    idempotencyKey: input.idempotencyKey,
+  });
+
+  // Create payment session for checkout tracking
+  if (input.checkoutRequestId) {
+    try {
+      await container.supabase.from("payment_sessions").upsert(
+        {
+          checkout_request_id: input.checkoutRequestId,
+          user_id: input.userId,
+          email: input.email,
+          status: "pending",
+          payment_intent_id: paymentIntent.id,
+          payment_method: "card",
+          currency: totals.currency,
+          amount: amountInCents,
+          metadata: {},
+          expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          browser: input.browser ?? null,
+          ip_address: input.ipAddress ?? null,
+          device_type: input.deviceType ?? null,
+        },
+        { onConflict: "checkout_request_id", ignoreDuplicates: false },
+      );
+    } catch (sessionErr) {
+      logger.warn("Failed to create payment session", { error: String(sessionErr) });
+    }
+  }
+
+  return {
+    clientSecret: paymentIntent.client_secret!,
+    id: paymentIntent.id,
+    amount: paymentIntent.amount,
+    paymentMethodTypes: paymentIntent.payment_method_types as string[],
+    validatedItems: validation.items.map((v) => ({
+      productId: v.productId,
+      name: v.productName,
+      unitPrice: v.unitPrice,
+      quantity: v.quantity,
+      size: v.size,
+      variantId: v.variantId,
+    })),
+    totals,
+  };
 }
 
-async function stripeRequest(
-  path: string,
-  init: {
-    method?: "POST" | "GET";
-    body?: URLSearchParams;
-  } = {},
-) {
-  const { secretKey } = readStripeConfig();
-  const response = await fetch(`https://api.stripe.com/v1/${path}`, {
-    method: init.method ?? "POST",
+export async function validateAndBuildLineItems(items: CheckoutItemInput[]) {
+  const itemsWithPrice: CartItemInput[] = items.map((item) => ({
+    productId: item.productId,
+    variantId: item.variantId,
+    size: item.size,
+    quantity: item.quantity,
+  }));
+
+  const validation = await validateCartItems(itemsWithPrice);
+
+  if (!validation.ok) {
+    throw new PaymentError(validation.error ?? "Cart validation failed");
+  }
+
+  return { validation, totals: calculateTotals(validation.items) };
+}
+
+export async function createStripeCheckoutSession(
+  input: CreateCheckoutSessionInput,
+): Promise<CheckoutSessionResult> {
+  const { validation, totals } = await validateAndBuildLineItems(input.items);
+  const publicUrl = env.publicAppUrl;
+
+  const sessionParams = new URLSearchParams();
+  sessionParams.set("mode", "payment");
+  sessionParams.set("success_url", input.successUrl || `${publicUrl}/order/success`);
+  sessionParams.set("cancel_url", input.cancelUrl || `${publicUrl}/checkout?canceled=1`);
+  sessionParams.set("customer_email", input.email);
+  sessionParams.set("automatic_payment_methods[enabled]", "true");
+  sessionParams.set("shipping_address_collection[allowed_countries][]", "US");
+  sessionParams.set("metadata[user_id]", input.userId);
+  sessionParams.set("metadata[email]", input.email);
+  sessionParams.set("metadata[subtotal]", String(totals.subtotal));
+  sessionParams.set("metadata[total]", String(totals.total));
+  sessionParams.set("metadata[shipping_address]", JSON.stringify(input.shippingAddress));
+  if (input.billingAddress) {
+    sessionParams.set("metadata[billing_address]", JSON.stringify(input.billingAddress));
+  }
+
+  const itemsMeta = validation.items.map((v) => ({
+    productId: v.productId,
+    variantId: v.variantId,
+    size: v.size,
+    quantity: v.quantity,
+    unitPrice: v.unitPrice,
+    productName: v.productName,
+  }));
+  sessionParams.set("metadata[validated_items]", JSON.stringify(itemsMeta));
+
+  validation.items.forEach((v, index) => {
+    sessionParams.set(`line_items[${index}][quantity]`, String(v.quantity));
+    sessionParams.set(`line_items[${index}][price_data][currency]`, totals.currency);
+    sessionParams.set(
+      `line_items[${index}][price_data][unit_amount]`,
+      String(Math.round(v.unitPrice * 100)),
+    );
+    sessionParams.set(`line_items[${index}][price_data][product_data][name]`, v.productName);
+  });
+
+  const secretKey = env.stripeSecretKey;
+  if (!secretKey) throw new PaymentError("Stripe secret key is not configured");
+
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: init.body,
+    body: sessionParams,
   });
 
   const payload = (await response.json()) as Record<string, unknown>;
@@ -115,278 +264,144 @@ async function stripeRequest(
       typeof payload.error === "object" && payload.error !== null && "message" in payload.error
         ? String((payload.error as { message?: string }).message ?? "Stripe request failed")
         : "Stripe request failed";
-    throw new Error(message);
-  }
-  return payload;
-}
-
-function buildLineItems(items: CheckoutItemInput[]) {
-  return items.map((item) => {
-    const product = getProduct(item.productId);
-    if (!product) {
-      throw new Error(`Unknown product: ${item.productId}`);
-    }
-
-    const line: CheckoutLine = {
-      productId: item.productId,
-      variantId: item.variantId ?? undefined,
-      size: item.size ?? "",
-      quantity: item.quantity,
-    };
-    const validation = validateStockBeforeCheckout(product, line);
-    if (!validation.ok) {
-      throw new Error(validation.reason ?? "Item is unavailable");
-    }
-
-    return {
-      product,
-      quantity: item.quantity,
-      size: item.size ?? "",
-      variantId: item.variantId ?? null,
-      unitAmount: Math.round(getUnitPrice(item.productId) * 100),
-    };
-  });
-}
-
-async function createPendingOrder(input: CreateCheckoutSessionInput) {
-  // Server-calculated totals — NEVER trust client prices
-  const validated = validateCartItems(input.items);
-  if (!validated.ok) {
-    throw new Error(validated.error ?? "Cart validation failed");
+    throw new PaymentError(message);
   }
 
-  const lineItems = buildLineItems(input.items);
-  const shippingCost = 0;
-  const total = clampMoney(validated.subtotal + shippingCost);
-  const orderNumber = buildOrderNumber();
-
-  const cartSnapshot = JSON.stringify(validated.items);
-
-  const insertFields: Record<string, unknown> = {
-    user_id: input.userId,
-    status: "pending",
-    subtotal: validated.subtotal,
-    shipping_cost: shippingCost,
-    discount: 0,
-    total,
-    coupon_code: null,
-    payment_status: "pending",
-    payment_method: "stripe",
-    shipping_address: input.shippingAddress ?? null,
-    billing_address: input.billingAddress ?? null,
-    notes: "Stripe Checkout pending confirmation",
-    order_number: orderNumber,
-    payment_provider: "stripe",
-    cart_snapshot: cartSnapshot,
-    checkout_started_at: new Date().toISOString(),
+  const stripeSession = payload as unknown as {
+    id: string;
+    url: string | null;
+    payment_intent: string | null;
   };
-
-  if (input.checkoutSessionToken) {
-    insertFields.checkout_session_token = input.checkoutSessionToken;
-  }
-
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from("orders")
-    .insert(insertFields)
-    .select("id, order_number")
-    .single();
-
-  if (orderError || !order) {
-    throw new Error(orderError?.message ?? "Unable to create order draft");
-  }
-
-  const { error: itemsError } = await supabaseAdmin.from("order_items").insert(
-    lineItems.map((line) => ({
-      order_id: order.id,
-      product_id: line.product.id,
-      variant_id: line.variantId,
-      name: line.product.name,
-      price: Number(line.unitAmount) / 100,
-      quantity: line.quantity,
-      image_url: line.product.images[0] ?? null,
-      attributes: {
-        size: line.size,
-        color: line.product.color,
-        sku: line.product.sku,
-      },
-    })),
-  );
-
-  if (itemsError) {
-    await supabaseAdmin.from("orders").delete().eq("id", order.id);
-    throw new Error(itemsError.message);
-  }
-
-  return { order, subtotal: validated.subtotal, total, lineItems };
-}
-
-export async function createStripeCheckoutSession(
-  input: CreateCheckoutSessionInput,
-): Promise<CheckoutSessionResult> {
-  const { publicUrl } = readStripeConfig();
-  const draft = await createPendingOrder(input);
-
-  const sessionParams = new URLSearchParams();
-  sessionParams.set("mode", "payment");
-  sessionParams.set("success_url", input.successUrl || `${publicUrl}/checkout?success=1`);
-  sessionParams.set("cancel_url", input.cancelUrl || `${publicUrl}/checkout?canceled=1`);
-  sessionParams.set("customer_email", input.email);
-  sessionParams.set("client_reference_id", draft.order.order_number);
-  sessionParams.set("metadata[order_id]", draft.order.id);
-  sessionParams.set("metadata[order_number]", draft.order.order_number);
-  sessionParams.set("shipping_address_collection[allowed_countries][]", "US");
-
-  draft.lineItems.forEach((line, index) => {
-    sessionParams.set(`line_items[${index}][quantity]`, String(line.quantity));
-    sessionParams.set(`line_items[${index}][price_data][currency]`, "usd");
-    sessionParams.set(`line_items[${index}][price_data][unit_amount]`, String(line.unitAmount));
-    sessionParams.set(`line_items[${index}][price_data][product_data][name]`, line.product.name);
-    sessionParams.set(
-      `line_items[${index}][price_data][product_data][description]`,
-      line.product.description.slice(0, 200),
-    );
-    sessionParams.set(
-      `line_items[${index}][price_data][product_data][metadata][product_id]`,
-      line.product.id,
-    );
-    sessionParams.set(`line_items[${index}][price_data][product_data][metadata][size]`, line.size);
-    if (line.variantId) {
-      sessionParams.set(
-        `line_items[${index}][price_data][product_data][metadata][variant_id]`,
-        line.variantId,
-      );
-    }
-  });
-
-  const stripeSession = (await stripeRequest("checkout/sessions", {
-    method: "POST",
-    body: sessionParams,
-  })) as StripeSessionResponse;
 
   if (!stripeSession.id || !stripeSession.url) {
-    throw new Error("Stripe session creation failed");
+    throw new PaymentError("Stripe session creation failed");
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from("orders")
-    .update({
-      stripe_session_id: stripeSession.id,
-      stripe_payment_intent_id: stripeSession.payment_intent ?? null,
-    })
-    .eq("id", draft.order.id);
-
-  if (updateError) {
-    throw new Error(updateError.message);
-  }
-
-  return {
-    orderId: draft.order.id,
-    orderNumber: draft.order.order_number,
-    checkoutUrl: stripeSession.url,
-  };
+  return { checkoutUrl: stripeSession.url };
 }
 
-export async function createCODOrder(
-  input: CreateCheckoutSessionInput,
-): Promise<CheckoutSessionResult> {
-  const validated = validateCartItems(input.items);
-  if (!validated.ok) {
-    throw new Error(validated.error ?? "Cart validation failed");
+export async function createPayPalOrder(input: {
+  items: Array<{
+    name: string;
+    quantity: number;
+    unitAmount: number;
+    description?: string;
+  }>;
+  subtotal: number;
+  shipping: number;
+  tax: number;
+}): Promise<PayPalCreateOrderResult> {
+  const clientId = env.paypalClientId;
+  const secret = env.paypalSecret;
+  if (!clientId || !secret) {
+    throw new PaymentError("PayPal is not configured");
   }
 
-  const lineItems = buildLineItems(input.items);
-  const shippingCost = 0;
-  const total = clampMoney(validated.subtotal + shippingCost);
-  const orderNumber = buildOrderNumber();
-  const cartSnapshot = JSON.stringify(validated.items);
+  const tokenResponse = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
 
-  const insertFields: Record<string, unknown> = {
-    user_id: input.userId,
-    status: "confirmed",
-    subtotal: validated.subtotal,
-    shipping_cost: shippingCost,
-    discount: 0,
-    total,
-    coupon_code: null,
-    payment_status: "pending",
-    payment_method: "cod",
-    shipping_address: input.shippingAddress ?? null,
-    billing_address: input.billingAddress ?? null,
-    notes: "Cash on Delivery",
-    order_number: orderNumber,
-    payment_provider: "cod",
-    cart_snapshot: cartSnapshot,
-    paid_at: null,
-    checkout_started_at: new Date().toISOString(),
+  const tokenData = (await tokenResponse.json()) as { access_token?: string };
+  if (!tokenData.access_token) throw new PaymentError("PayPal authentication failed");
+
+  const total = input.subtotal + input.shipping + input.tax;
+
+  const orderResponse = await fetch("https://api-m.paypal.com/v2/checkout/orders", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${tokenData.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          amount: {
+            currency_code: "USD",
+            value: (total / 100).toFixed(2),
+            breakdown: {
+              item_total: {
+                currency_code: "USD",
+                value: (input.subtotal / 100).toFixed(2),
+              },
+              shipping: {
+                currency_code: "USD",
+                value: (input.shipping / 100).toFixed(2),
+              },
+              tax_total: {
+                currency_code: "USD",
+                value: (input.tax / 100).toFixed(2),
+              },
+            },
+          },
+          items: input.items.map((item) => ({
+            name: item.name,
+            quantity: String(item.quantity),
+            unit_amount: {
+              currency_code: "USD",
+              value: (item.unitAmount / 100).toFixed(2),
+            },
+            description: item.description,
+          })),
+        },
+      ],
+    }),
+  });
+
+  const orderData = (await orderResponse.json()) as {
+    id?: string;
+    links?: Array<{ rel: string; href: string }>;
   };
 
-  if (input.checkoutSessionToken) {
-    insertFields.checkout_session_token = input.checkoutSessionToken;
-  }
+  if (!orderData.id) throw new PaymentError("PayPal order creation failed");
 
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from("orders")
-    .insert(insertFields)
-    .select("id, order_number")
-    .single();
+  const approveLink = orderData.links?.find((l) => l.rel === "approve")?.href;
+  if (!approveLink) throw new PaymentError("PayPal approval link not found");
 
-  if (orderError || !order) {
-    throw new Error(orderError?.message ?? "Unable to create COD order");
-  }
+  return { id: orderData.id, approveUrl: approveLink };
+}
 
-  const { error: itemsError } = await supabaseAdmin.from("order_items").insert(
-    lineItems.map((line) => ({
-      order_id: order.id,
-      product_id: line.product.id,
-      variant_id: line.variantId,
-      name: line.product.name,
-      price: Number(line.unitAmount) / 100,
-      quantity: line.quantity,
-      image_url: line.product.images[0] ?? null,
-      attributes: {
-        size: line.size,
-        color: line.product.color,
-        sku: line.product.sku,
+export async function capturePayPalOrder(orderId: string): Promise<{ status: string; id: string }> {
+  const clientId = env.paypalClientId;
+  const secret = env.paypalSecret;
+  if (!clientId || !secret) throw new PaymentError("PayPal is not configured");
+
+  const tokenResponse = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  const tokenData = (await tokenResponse.json()) as { access_token?: string };
+  if (!tokenData.access_token) throw new PaymentError("PayPal authentication failed");
+
+  const captureResponse = await fetch(
+    `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        "Content-Type": "application/json",
       },
-    })),
+    },
   );
 
-  if (itemsError) {
-    await supabaseAdmin.from("orders").delete().eq("id", order.id);
-    throw new Error(itemsError.message);
-  }
-
-  // Decrement stock for each item
-  const decrements = await Promise.all(
-    lineItems.map((line) =>
-      supabaseAdmin.rpc("decrement_checkout_stock", {
-        p_product_id: line.product.id,
-        p_quantity: line.quantity,
-        p_size: line.size ?? "",
-        p_variant_id: line.variantId,
-        p_reference: orderNumber,
-        p_notes: `cod:${orderNumber}`,
-      }),
-    ),
-  );
-
-  const anyFailed = decrements.some(({ data, error }) => error || data !== true);
-  if (anyFailed) {
-    await supabaseAdmin
-      .from("orders")
-      .update({
-        status: "cancelled",
-        notes: "Stock conflict at COD placement",
-      })
-      .eq("id", order.id);
-    throw new Error("Stock conflict — unable to place order");
-  }
-
-  return {
-    orderId: order.id,
-    orderNumber: order.order_number,
-    checkoutUrl: `/account/orders/${order.id}`,
+  const captureData = (await captureResponse.json()) as {
+    status?: string;
+    id?: string;
   };
+
+  if (!captureData.id) throw new PaymentError("PayPal capture failed");
+
+  return { status: captureData.status ?? "UNKNOWN", id: captureData.id };
 }
 
 function hmacSha256(value: string, secret: string) {
@@ -394,7 +409,7 @@ function hmacSha256(value: string, secret: string) {
 }
 
 export function verifyStripeWebhookSignature(payload: string, signatureHeader: string | null) {
-  const { webhookSecret } = readStripeConfig();
+  const webhookSecret = env.stripeWebhookSecret;
   if (!webhookSecret || !signatureHeader) return false;
 
   const parts = Object.fromEntries(
@@ -415,123 +430,4 @@ export function verifyStripeWebhookSignature(payload: string, signatureHeader: s
 
   const currentWindow = Math.abs(Date.now() / 1000 - Number(timestamp));
   return currentWindow <= 300 && crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
-}
-
-async function refundOrder(paymentIntentId: string) {
-  const body = new URLSearchParams();
-  body.set("payment_intent", paymentIntentId);
-  await stripeRequest("refunds", { method: "POST", body });
-}
-
-export async function confirmStripeOrder(event: {
-  id: string;
-  type: string;
-  data: { object: Record<string, unknown> };
-}): Promise<WebhookResult> {
-  if (event.type !== "checkout.session.completed") {
-    return { ok: true, processed: false, message: "Ignored event" };
-  }
-
-  const session = event.data.object as Record<string, unknown>;
-  const sessionId = String(session.id ?? "");
-  const paymentIntentId = String(session.payment_intent ?? "");
-  const metadata = (session.metadata as Record<string, string> | undefined) ?? {};
-  const orderId = metadata.order_id ?? "";
-
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from("orders")
-    .select(
-      "id, order_number, status, payment_status, stripe_session_id, stripe_payment_intent_id, payment_provider, cart_snapshot",
-    )
-    .or(
-      orderId
-        ? `id.eq.${orderId},stripe_session_id.eq.${sessionId}`
-        : `stripe_session_id.eq.${sessionId}`,
-    )
-    .maybeSingle();
-
-  if (orderError) {
-    throw new Error(orderError.message);
-  }
-  if (!order) {
-    return { ok: true, processed: false, message: "Order not found" };
-  }
-
-  // ─── Idempotency: claim the webhook atomically ─────────────────────────
-  // This prevents double-processing from retried webhook deliveries.
-  const idempotencyKey = `${event.id}::${order.id}`;
-  const { data: claimed, error: claimError } = await supabaseAdmin.rpc("try_claim_webhook", {
-    p_order_id: order.id,
-    p_idempotency_key: idempotencyKey,
-    p_payment_intent: paymentIntentId || null,
-    p_session_id: sessionId || null,
-  });
-
-  if (claimError) {
-    throw new Error(claimError.message);
-  }
-  if (claimed === false) {
-    return { ok: true, processed: false, message: "Duplicate webhook — already processed" };
-  }
-
-  // ─── Stock decrement ──────────────────────────────────────────────────
-  const { data: items, error: itemsError } = await supabaseAdmin
-    .from("order_items")
-    .select("product_id, variant_id, quantity, attributes")
-    .eq("order_id", order.id);
-  if (itemsError) {
-    throw new Error(itemsError.message);
-  }
-
-  const decrements = await Promise.all(
-    (items ?? []).map((item) =>
-      supabaseAdmin.rpc("decrement_checkout_stock", {
-        p_product_id: item.product_id,
-        p_quantity: item.quantity,
-        p_size: String((item.attributes as { size?: string } | null)?.size ?? ""),
-        p_variant_id: item.variant_id,
-        p_reference: sessionId,
-        p_notes: `stripe:${order.order_number}`,
-      }),
-    ),
-  );
-
-  const anyFailed = decrements.some(({ data, error }) => error || data !== true);
-  if (anyFailed) {
-    if (paymentIntentId) {
-      await refundOrder(paymentIntentId);
-    }
-    await supabaseAdmin
-      .from("orders")
-      .update({
-        status: "cancelled",
-        payment_status: paymentIntentId ? "refunded" : "failed",
-        stripe_payment_intent_id: paymentIntentId || null,
-        notes: "Auto-refunded due to stock conflict",
-      })
-      .eq("id", order.id);
-    return {
-      ok: false,
-      processed: true,
-      message: "Stock conflict detected; refund initiated",
-    };
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from("orders")
-    .update({
-      status: "confirmed",
-      payment_status: "completed",
-      stripe_session_id: sessionId || order.stripe_session_id,
-      stripe_payment_intent_id: paymentIntentId || order.stripe_payment_intent_id,
-      paid_at: new Date().toISOString(),
-      payment_provider: "stripe",
-    })
-    .eq("id", order.id);
-
-  if (updateError) {
-    throw new Error(updateError.message);
-  }
-
-  return { ok: true, processed: true, message: "Order confirmed" };
 }

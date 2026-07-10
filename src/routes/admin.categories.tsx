@@ -16,12 +16,10 @@ function CategoriesPage() {
         <div className="mb-10">
           <p className="eyebrow">Admin</p>
           <h1 className="font-serif text-4xl mt-2">Categories</h1>
-          <p className="text-sm text-muted-foreground mt-2 max-w-lg">
-            Manage product categories.
-          </p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-lg">Manage product categories.</p>
         </div>
         <CategoriesTable />
-      
-    </div></AdminLayout>
+      </div>
+    </AdminLayout>
   );
 }

@@ -74,7 +74,9 @@ export function useInvoicesManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, statusFilter, dateFrom, dateTo]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -83,7 +85,10 @@ export function useInvoiceDetails(invoiceId: string | null) {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    if (!invoiceId) { setData(null); return; }
+    if (!invoiceId) {
+      setData(null);
+      return;
+    }
     try {
       setLoading(true);
       const result = await rpc<InvoiceDetails>("get_invoice_details", { p_invoice_id: invoiceId });
@@ -95,7 +100,9 @@ export function useInvoiceDetails(invoiceId: string | null) {
     }
   }, [invoiceId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading };
 }
 
@@ -107,7 +114,9 @@ export async function updateInvoiceStatus(invoiceId: string, status: string): Pr
   return rpc<RpcResult>("update_invoice_status", { p_invoice_id: invoiceId, p_status: status });
 }
 
-export async function sendInvoiceEmail(invoiceId: string): Promise<{ success: boolean; error?: string }> {
+export async function sendInvoiceEmail(
+  invoiceId: string,
+): Promise<{ success: boolean; error?: string }> {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
   const functionUrl = `${baseUrl}/functions/v1/send-invoice`;
 

@@ -15,12 +15,19 @@ const ACTION_BADGES: Record<string, string> = {
 
 function ActionBadge({ action }: { action: string }) {
   const cls = ACTION_BADGES[action] ?? "bg-neutral-100 text-muted-foreground";
-  return <span className={`inline-block px-2 py-0.5 text-[10px] tracking-[0.15em] uppercase ${cls}`}>{action.replace(/_/g, " ")}</span>;
+  return (
+    <span className={`inline-block px-2 py-0.5 text-[10px] tracking-[0.15em] uppercase ${cls}`}>
+      {action.replace(/_/g, " ")}
+    </span>
+  );
 }
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleString("en-US", {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -34,20 +41,32 @@ export function AuditLogsTable() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const pageSize = 20;
-  const { result, loading, error, refetch } = useAuditLogs(page, pageSize, entityType, action, search);
+  const { result, loading, error, refetch } = useAuditLogs(
+    page,
+    pageSize,
+    entityType,
+    action,
+    search,
+  );
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
 
   const debouncedSearch = (() => {
     let timer: ReturnType<typeof setTimeout>;
     return (val: string) => {
       clearTimeout(timer);
-      timer = setTimeout(() => { setSearch(val); setPage(1); }, 300);
+      timer = setTimeout(() => {
+        setSearch(val);
+        setPage(1);
+      }, 300);
     };
   })();
 
   function toggleSort(col: string) {
     if (sortBy === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortBy(col); setSortDir("desc"); }
+    else {
+      setSortBy(col);
+      setSortDir("desc");
+    }
     setPage(1);
   }
 
@@ -70,12 +89,18 @@ export function AuditLogsTable() {
         <Input
           placeholder="Search entity, action, or ID…"
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
           className="max-w-sm h-9 text-sm"
         />
         <select
           value={entityType}
-          onChange={(e) => { setEntityType(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setEntityType(e.target.value);
+            setPage(1);
+          }}
           className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
         >
           <option value="">All Entity Types</option>
@@ -89,7 +114,10 @@ export function AuditLogsTable() {
         </select>
         <select
           value={action}
-          onChange={(e) => { setAction(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setAction(e.target.value);
+            setPage(1);
+          }}
           className="h-9 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
         >
           <option value="">All Actions</option>
@@ -103,14 +131,18 @@ export function AuditLogsTable() {
       {error && (
         <div className="border border-red/20 bg-red/5 p-6 text-center mb-6">
           <p className="text-sm text-red/80">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">Retry</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">
+            Retry
+          </Button>
         </div>
       )}
 
       {loading && !error && (
         <div className="space-y-3">
           <Skeleton className="h-10 w-full" />
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
         </div>
       )}
 
@@ -126,20 +158,38 @@ export function AuditLogsTable() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/60">
-                  <Th onClick={() => toggleSort("action")}>Action<SortIcon column="action" /></Th>
-                  <Th onClick={() => toggleSort("entity_type")}>Entity<SortIcon column="entity_type" /></Th>
+                  <Th onClick={() => toggleSort("action")}>
+                    Action
+                    <SortIcon column="action" />
+                  </Th>
+                  <Th onClick={() => toggleSort("entity_type")}>
+                    Entity
+                    <SortIcon column="entity_type" />
+                  </Th>
                   <Th>Entity ID</Th>
-                  <Th onClick={() => toggleSort("actor_name")}>Actor<SortIcon column="actor_name" /></Th>
+                  <Th onClick={() => toggleSort("actor_name")}>
+                    Actor
+                    <SortIcon column="actor_name" />
+                  </Th>
                   <Th>IP / Device</Th>
-                  <Th onClick={() => toggleSort("created_at")}>Timestamp<SortIcon column="created_at" /></Th>
+                  <Th onClick={() => toggleSort("created_at")}>
+                    Timestamp
+                    <SortIcon column="created_at" />
+                  </Th>
                 </tr>
               </thead>
               <tbody>
                 {result.logs.map((log: AuditLogEntry) => (
                   <tr key={log.id} className="border-b border-border/40 hover:bg-muted/30">
-                    <td className="px-4 py-3"><ActionBadge action={log.action} /></td>
-                    <td className="px-4 py-3 text-sm capitalize">{log.entity_type?.replace(/_/g, " ")}</td>
-                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{log.entity_id ? log.entity_id.slice(0, 12) + "…" : "—"}</td>
+                    <td className="px-4 py-3">
+                      <ActionBadge action={log.action} />
+                    </td>
+                    <td className="px-4 py-3 text-sm capitalize">
+                      {log.entity_type?.replace(/_/g, " ")}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
+                      {log.entity_id ? log.entity_id.slice(0, 12) + "…" : "—"}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <span className="flex items-center gap-1.5">
                         <User className="h-3 w-3 text-muted-foreground" />
@@ -149,12 +199,26 @@ export function AuditLogsTable() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {log.ip_address || log.user_agent ? (
                         <span className="flex items-center gap-1">
-                          {log.ip_address && <><Globe className="h-3 w-3" />{log.ip_address}</>}
-                          {log.user_agent && <><Monitor className="h-3 w-3 ml-1" />{log.user_agent.slice(0, 30)}…</>}
+                          {log.ip_address && (
+                            <>
+                              <Globe className="h-3 w-3" />
+                              {log.ip_address}
+                            </>
+                          )}
+                          {log.user_agent && (
+                            <>
+                              <Monitor className="h-3 w-3 ml-1" />
+                              {log.user_agent.slice(0, 30)}…
+                            </>
+                          )}
                         </span>
-                      ) : "—"}
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatTime(log.created_at)}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {formatTime(log.created_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -162,11 +226,29 @@ export function AuditLogsTable() {
           </div>
 
           <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
-            <span>{result.total} log{result.total !== 1 ? "s" : ""}</span>
+            <span>
+              {result.total} log{result.total !== 1 ? "s" : ""}
+            </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-xs">{page} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-xs">
+                {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         </>
@@ -175,7 +257,15 @@ export function AuditLogsTable() {
   );
 }
 
-function Th({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+function Th({
+  children,
+  onClick,
+  className = "",
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+}) {
   return (
     <th
       className={`px-4 py-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-medium ${onClick ? "cursor-pointer hover:text-foreground" : ""} ${className}`}

@@ -26,9 +26,7 @@ export function InventoryDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${card.className ?? ""}`}>
-              {card.value}
-            </p>
+            <p className={`text-2xl font-bold ${card.className ?? ""}`}>{card.value}</p>
           </CardContent>
         </Card>
       ))}

@@ -83,7 +83,9 @@ export function useReviewsManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, statusFilter, ratingFilter]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -108,7 +110,9 @@ export function useReviewDetails(reviewId: string | null) {
     }
   }, [reviewId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { details, loading, error, refetch: load };
 }
 
@@ -130,7 +134,9 @@ export function useAdminReviewStats() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { stats, loading, error, refetch: load };
 }
 

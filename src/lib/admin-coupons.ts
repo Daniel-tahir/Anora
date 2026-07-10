@@ -85,7 +85,9 @@ export function useCouponsManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, statusFilter, typeFilter]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -107,7 +109,9 @@ export function useCouponAnalytics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { data, loading, error, refetch: load };
 }
 

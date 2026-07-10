@@ -22,12 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  useReviewDetails,
-  approveReview,
-  rejectReview,
-  deleteReview,
-} from "@/lib/admin-reviews";
+import { useReviewDetails, approveReview, rejectReview, deleteReview } from "@/lib/admin-reviews";
 
 interface Props {
   reviewId: string | null;
@@ -96,7 +91,15 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
 
   return (
     <>
-      <Sheet open={open} onOpenChange={(o) => { if (!o) { onClose(); setShowRejectInput(false); } }}>
+      <Sheet
+        open={open}
+        onOpenChange={(o) => {
+          if (!o) {
+            onClose();
+            setShowRejectInput(false);
+          }
+        }}
+      >
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader className="mb-6">
             <SheetTitle>Review Details</SheetTitle>
@@ -114,7 +117,9 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
           ) : error ? (
             <div className="border border-red/20 bg-red/5 p-4 text-center">
               <p className="text-sm text-red/80">{error}</p>
-              <button onClick={refetch} className="text-sm underline mt-2">Retry</button>
+              <button onClick={refetch} className="text-sm underline mt-2">
+                Retry
+              </button>
             </div>
           ) : !details ? (
             <p className="text-sm text-muted-foreground">Review not found.</p>
@@ -122,27 +127,35 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
             <div className="space-y-6">
               {/* Product */}
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Product</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                  Product
+                </p>
                 <p className="font-medium">{details.product_name}</p>
               </div>
 
               {/* Customer */}
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Customer</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                  Customer
+                </p>
                 <p className="font-medium">{details.customer_name}</p>
                 <p className="text-sm text-muted-foreground">{details.customer_email}</p>
               </div>
 
               {/* Rating */}
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Rating</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                  Rating
+                </p>
                 <p className="text-lg">{details.rating}/5</p>
               </div>
 
               {/* Title */}
               {details.title && (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Title</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    Title
+                  </p>
                   <p className="font-medium">{details.title}</p>
                 </div>
               )}
@@ -150,14 +163,18 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
               {/* Review Text */}
               {details.review_text && (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Review</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    Review
+                  </p>
                   <p className="text-sm whitespace-pre-wrap">{details.review_text}</p>
                 </div>
               )}
 
               {/* Status */}
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Status</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                  Status
+                </p>
                 <Badge variant={statusColors[details.status] ?? "outline"} className="capitalize">
                   {details.status}
                 </Badge>
@@ -166,7 +183,9 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
               {/* Admin Note */}
               {details.admin_note && (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Admin Note</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    Admin Note
+                  </p>
                   <p className="text-sm">{details.admin_note}</p>
                 </div>
               )}
@@ -174,7 +193,9 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
               {/* Date */}
               <div className="text-xs text-muted-foreground">
                 <p>Created: {new Date(details.created_at).toLocaleString()}</p>
-                {details.approved_at && <p>Approved: {new Date(details.approved_at).toLocaleString()}</p>}
+                {details.approved_at && (
+                  <p>Approved: {new Date(details.approved_at).toLocaleString()}</p>
+                )}
               </div>
 
               {/* Moderations Actions */}
@@ -203,10 +224,19 @@ export function ReviewDetailsDrawer({ reviewId, open, onClose, onUpdated }: Prop
                         placeholder="Reason for rejection..."
                       />
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setShowRejectInput(false)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowRejectInput(false)}
+                        >
                           Cancel
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={handleReject} disabled={actionLoading}>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleReject}
+                          disabled={actionLoading}
+                        >
                           {actionLoading ? "Processing..." : "Confirm Reject"}
                         </Button>
                       </div>

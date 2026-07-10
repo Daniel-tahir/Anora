@@ -1,4 +1,16 @@
 import type { Product, ColorVariant, Category } from "./products";
+import {
+  normalizeSizeStock,
+  clampStock,
+  isSizeTracked,
+  getAvailableStock,
+  validateQuantity,
+  validateSizeStock,
+  isStockOnlyError,
+  isSizeTrackedJsonb,
+  ErrorCodes,
+  type ErrorCode,
+} from "./inventory-engine";
 
 export const DEFAULT_SIZE_THRESHOLD = 5;
 
@@ -49,6 +61,7 @@ export interface CheckoutLine {
 export interface StockValidationResult {
   ok: boolean;
   reason?: string;
+  code?: ErrorCode;
   availableQuantity: number;
   availability: AvailabilityState;
 }
@@ -60,18 +73,6 @@ export interface InventoryLogEntry {
   quantityAfter: number;
   changeType: "order" | "restock" | "adjustment" | "return" | "cancellation";
   notes?: string;
-}
-
-function clampStock(value: number | undefined | null) {
-  return Math.max(0, Number(value ?? 0) || 0);
-}
-
-function normalizeSizeStock(sizeStock?: Record<string, number> | null) {
-  const raw = Object.fromEntries(
-    Object.entries(sizeStock ?? {}).map(([size, quantity]) => [size, clampStock(quantity)]),
-  );
-  const hasAnyNonZero = Object.values(raw).some((v) => v > 0);
-  return hasAnyNonZero ? raw : {};
 }
 
 function getVariantRecord(product: Product, color?: string) {
@@ -112,8 +113,8 @@ export function getProductAvailability(product: Product, color?: string): Availa
     const normalizedSizeStock = getEffectiveSizeStock(product, variant);
     const variantStock = clampStock(variant.stock ?? product.stock);
     const availableBySize = Object.values(normalizedSizeStock).some((quantity) => quantity > 0);
-    const available =
-      variantStock > 0 && (Object.keys(normalizedSizeStock).length === 0 || availableBySize);
+    const sizeTracked = isSizeTracked(normalizedSizeStock);
+    const available = variantStock > 0 && (!sizeTracked || availableBySize);
     return {
       color: variant.color,
       sku: variant.sku ?? product.sku,
@@ -128,8 +129,9 @@ export function getProductAvailability(product: Product, color?: string): Availa
 
   const stock = getVariantStock(product, color);
   const sizeStock = getEffectiveSizeStock(product, selectedVariant);
+  const sizeTracked = isSizeTracked(sizeStock);
   const sizeStocks = Object.values(sizeStock);
-  const anySizeAvailable = sizeStocks.length === 0 || sizeStocks.some((quantity) => quantity > 0);
+  const anySizeAvailable = !sizeTracked || sizeStocks.some((quantity) => quantity > 0);
 
   return {
     productId: product.id,
@@ -164,26 +166,43 @@ export function validateStockBeforeCheckout(
   line: CheckoutLine,
 ): StockValidationResult {
   const availability = getProductAvailability(product, line.color);
-  const sizeQuantity = availability.sizeStock[line.size];
-  const sizeLimited = Object.keys(availability.sizeStock).length > 0;
-  const availableQuantity = sizeLimited ? clampStock(sizeQuantity) : availability.stock;
+  const { quantity: availableQuantity, error: stockError } = getAvailableStock(
+    { stock: availability.stock, size_stock: availability.sizeStock },
+    line.size,
+  );
+
   if (!availability.isAvailable) {
-    return { ok: false, reason: "Product is unavailable", availableQuantity, availability };
-  }
-  if (line.quantity <= 0) {
-    return { ok: false, reason: "Quantity must be positive", availableQuantity, availability };
-  }
-  if (sizeLimited && sizeQuantity === 0) {
-    return { ok: false, reason: "Selected size is out of stock", availableQuantity, availability };
-  }
-  if (line.quantity > availableQuantity) {
     return {
       ok: false,
-      reason: "Requested quantity exceeds stock",
+      reason: "Product is unavailable",
+      code: "PRODUCT_OUT_OF_STOCK",
       availableQuantity,
       availability,
     };
   }
+
+  const sizeError = validateSizeStock(line.size, availability.sizeStock, product.name);
+  if (sizeError) {
+    return {
+      ok: false,
+      reason: sizeError.message,
+      code: sizeError.code as ErrorCode,
+      availableQuantity,
+      availability,
+    };
+  }
+
+  const qtyError = validateQuantity(line.quantity, availableQuantity, product.name);
+  if (qtyError) {
+    return {
+      ok: false,
+      reason: qtyError.message,
+      code: qtyError.code as ErrorCode,
+      availableQuantity,
+      availability,
+    };
+  }
+
   return { ok: true, availableQuantity, availability };
 }
 

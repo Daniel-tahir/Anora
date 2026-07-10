@@ -131,7 +131,9 @@ export function useOrderMetrics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { metrics, loading, error, refetch: load };
 }
@@ -176,7 +178,9 @@ export function useOrdersManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, status, paymentStatus, dateFrom, dateTo]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { result, loading, error, refetch: load };
 }
@@ -202,7 +206,9 @@ export function useOrderDetails(orderId: string | null) {
     }
   }, [orderId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { details, loading, error, refetch: load };
 }

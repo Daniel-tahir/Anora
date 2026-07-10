@@ -32,7 +32,11 @@ export const Route = createFileRoute("/shop/$category/$subcategory")({
 });
 
 function ShopSubcategory() {
-  const { category, subcategory, childName } = Route.useLoaderData() as { category: string; subcategory: string; childName: string };
+  const { category, subcategory, childName } = Route.useLoaderData() as {
+    category: string;
+    subcategory: string;
+    childName: string;
+  };
   const { data: dbProducts = [] } = useSubcategoryProducts(category, subcategory);
 
   return (

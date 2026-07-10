@@ -97,7 +97,9 @@ export function useInventoryManagement(
     }
   }, [page, pageSize, search, sortBy, sortDir, stockStatus, categoryId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { result, loading, error, refetch: load };
 }
 
@@ -119,7 +121,9 @@ export function useInventorySummary() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { summary, loading, error, refetch: load };
 }
 
@@ -145,7 +149,9 @@ export function useInventoryHistory(productId: string | null) {
     }
   }, [productId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { movements, loading, error, refetch: load };
 }
 
@@ -169,7 +175,9 @@ export function useInventoryAlerts(unresolvedOnly = true) {
     }
   }, [unresolvedOnly]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   return { alerts, loading, error, refetch: load };
 }
 
