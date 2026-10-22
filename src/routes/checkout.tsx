@@ -425,6 +425,7 @@ export function CheckoutForm() {
       await updatePaymentIntent({
         data: {
           paymentIntentId: piId,
+          clientSecret,
           email,
           accessToken,
           shippingAddress,

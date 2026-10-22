@@ -2,6 +2,7 @@ import { getHeader, createError, defineEventHandler, readMultipartFormData } fro
 import { verifyAdminAccess } from "../../../../lib/admin";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import crypto from "node:crypto";
+import { toSafeWebp } from "../../../../lib/image-upload";
 
 export default defineEventHandler(async (event) => {
   const authorization = getHeader(event, "authorization") ?? "";
@@ -51,29 +52,15 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-  const isWebP = ext === "webp" || mimeType === "image/webp";
-
   let outputData: Buffer;
-  let outputMimeType = mimeType;
-
-  if (isWebP) {
-    outputData = fileData;
-  } else if (["jpg", "jpeg", "png"].includes(ext) || ["image/jpeg", "image/png"].includes(mimeType)) {
-    try {
-      const sharp = (await import("sharp")).default;
-      outputData = await sharp(fileData)
-        .webp({ quality: 90 })
-        .toBuffer();
-      outputMimeType = "image/webp";
-    } catch (err: any) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Image conversion failed: ${err.message}`,
-      });
-    }
-  } else {
-    throw createError({ statusCode: 400, statusMessage: "Unsupported file format" });
+  const outputMimeType = "image/webp";
+  try {
+    outputData = await toSafeWebp(fileData);
+  } catch (err: any) {
+    throw createError({
+      statusCode: err?.statusCode ?? 400,
+      statusMessage: err?.statusCode === 400 ? err.message : "Unsupported or invalid image",
+    });
   }
 
   const uuid = crypto.randomUUID();
@@ -90,7 +77,7 @@ export default defineEventHandler(async (event) => {
   if (uploadError) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Storage upload failed: ${uploadError.message}`,
+      statusMessage: "Storage upload failed",
     });
   }
 
@@ -114,7 +101,7 @@ export default defineEventHandler(async (event) => {
   if (insertError) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Database insert failed: ${insertError.message}`,
+      statusMessage: "Database insert failed",
     });
   }
 

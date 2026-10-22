@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, getHeader, getQuery, getRouterParam, redirect } from "h3";
+import { createError, defineEventHandler, getHeader, getRouterParam, redirect } from "h3";
 import { initContainer } from "../../../../container";
 
 export default defineEventHandler(async (event) => {
@@ -8,12 +8,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const authorization = getHeader(event, "authorization") ?? "";
-  let accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-
-  if (!accessToken) {
-    const query = getQuery(event) as Record<string, string>;
-    accessToken = query.token ?? "";
-  }
+  // Header only: tokens in query strings leak through logs, browser history and Referer headers.
+  const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
 
   if (!accessToken) {
     throw createError({ statusCode: 401, statusMessage: "Authentication required" });
@@ -41,13 +37,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Invoice not found" });
   }
 
-  const { data: profile } = await (supabase
-    .from("profiles") as any)
-    .select("is_staff")
-    .eq("id", user.id)
+  // profiles.is_staff does not exist; staff are rows in admin_roles (same as RLS is_staff()).
+  const { data: staffRow } = await (supabase
+    .from("admin_roles") as any)
+    .select("role")
+    .eq("user_id", user.id)
     .maybeSingle();
 
-  const isStaff = profile?.is_staff === true;
+  const isStaff = !!staffRow;
   if (invoice.customer_id !== user.id && !isStaff) {
     throw createError({ statusCode: 403, statusMessage: "Access denied" });
   }

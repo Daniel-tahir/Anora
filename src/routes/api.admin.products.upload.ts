@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { verifyAdminAccess } from "../../server/lib/admin";
 import { supabaseAdmin } from "../../server/lib/supabase-admin";
 import crypto from "node:crypto";
+import { toSafeWebp } from "../../server/lib/image-upload";
 
 export const Route = createFileRoute("/api/admin/products/upload")({
   server: {
@@ -53,37 +54,15 @@ export const Route = createFileRoute("/api/admin/products/upload")({
             }
           }
 
-          const filename = file.name || "image.jpg";
-          const mimeType = file.type || "image/jpeg";
-          const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-          const isWebP = ext === "webp" || mimeType === "image/webp";
-
           let outputData: Buffer;
-          let outputMimeType = mimeType;
-
-          const arrayBuffer = await file.arrayBuffer();
-          const fileData = Buffer.from(arrayBuffer);
-
-          if (isWebP) {
-            outputData = fileData;
-          } else if (["jpg", "jpeg", "png"].includes(ext) || ["image/jpeg", "image/png"].includes(mimeType)) {
-            try {
-              const sharp = (await import("sharp")).default;
-              outputData = await sharp(fileData)
-                .webp({ quality: 90 })
-                .toBuffer();
-              outputMimeType = "image/webp";
-            } catch (err: any) {
-              return new Response(JSON.stringify({ error: `Image conversion failed: ${err.message}` }), {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-              });
-            }
-          } else {
-            return new Response(JSON.stringify({ error: "Unsupported file format" }), {
-              status: 400,
-              headers: { "Content-Type": "application/json" },
-            });
+          const outputMimeType = "image/webp";
+          try {
+            outputData = await toSafeWebp(Buffer.from(await file.arrayBuffer()));
+          } catch (err: any) {
+            return new Response(
+              JSON.stringify({ error: err?.statusCode === 400 ? err.message : "Unsupported or invalid image" }),
+              { status: 400, headers: { "Content-Type": "application/json" } },
+            );
           }
 
           const uuid = crypto.randomUUID();
@@ -98,7 +77,7 @@ export const Route = createFileRoute("/api/admin/products/upload")({
             });
 
           if (uploadError) {
-            return new Response(JSON.stringify({ error: `Storage upload failed: ${uploadError.message}` }), {
+            return new Response(JSON.stringify({ error: "Storage upload failed" }), {
               status: 500,
               headers: { "Content-Type": "application/json" },
             });
@@ -125,7 +104,7 @@ export const Route = createFileRoute("/api/admin/products/upload")({
             .single();
 
           if (insertError) {
-            return new Response(JSON.stringify({ error: `Database insert failed: ${insertError.message}` }), {
+            return new Response(JSON.stringify({ error: "Database insert failed" }), {
               status: 500,
               headers: { "Content-Type": "application/json" },
             });
@@ -136,7 +115,7 @@ export const Route = createFileRoute("/api/admin/products/upload")({
             headers: { "Content-Type": "application/json" },
           });
         } catch (e: any) {
-          return new Response(JSON.stringify({ error: e.message || "Internal server error" }), {
+          return new Response(JSON.stringify({ error: "Internal server error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
           });

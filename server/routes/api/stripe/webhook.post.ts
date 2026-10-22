@@ -3,52 +3,55 @@ import { createOrderFromPayment, createOrderFromPaymentIntent } from "../../../l
 import { initContainer } from "../../../container";
 import { env } from "../../../config/env";
 import { logger } from "../../../lib/logger";
+import { escapeHtml } from "../../../lib/security";
 
+const WEBHOOK_LOCK_TTL_MS = 2 * 60 * 1000;
+
+/**
+ * Claims a Stripe event for processing. The claim is a single conditional UPDATE, so two concurrent
+ * deliveries of the same event can never both proceed ("in_flight" tells the caller to ask Stripe
+ * to retry later instead of processing twice).
+ */
 async function acquireWebhookEvent(
   supabase: any,
   eventId: string,
   eventType: string,
-): Promise<{ status: "new" | "retry" | "duplicate"; orderId?: string }> {
-  const { data: existing } = await (supabase
-    .from("webhook_events") as any)
-    .select("status, order_id")
-    .eq("event_id", eventId)
-    .maybeSingle();
-
-  if (existing) {
-    if (existing.status === "completed") {
-      return { status: "duplicate", orderId: existing.order_id ?? undefined };
-    }
-    await (supabase
-      .from("webhook_events") as any)
-      .update({ status: "processing", processed_at: new Date().toISOString() })
-      .eq("event_id", eventId);
-    return { status: "retry" };
-  }
+): Promise<{ status: "new" | "retry" | "duplicate" | "in_flight"; orderId?: string }> {
+  const nowIso = new Date().toISOString();
 
   const { error: insertError } = await (supabase.from("webhook_events") as any).insert({
     event_id: eventId,
     event_type: eventType,
     status: "processing",
+    processed_at: nowIso,
   });
-
-  if (insertError && insertError.code === "23505") {
-    const { data: race } = await (supabase
-      .from("webhook_events") as any)
-      .select("status, order_id")
-      .eq("event_id", eventId)
-      .maybeSingle();
-    if (race?.status === "completed") {
-      return { status: "duplicate", orderId: race.order_id ?? undefined };
-    }
-    return { status: "retry" };
-  }
-
-  if (insertError) {
+  if (!insertError) return { status: "new" };
+  if (insertError.code !== "23505") {
     throw createError({ statusCode: 500, statusMessage: "Failed to record webhook event" });
   }
 
-  return { status: "new" };
+  const { data: existing } = await (supabase.from("webhook_events") as any)
+    .select("status, order_id, processed_at")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (!existing) return { status: "in_flight" };
+  if (existing.status === "completed") {
+    return { status: "duplicate", orderId: existing.order_id ?? undefined };
+  }
+
+  const lastTouch = existing.processed_at ? new Date(existing.processed_at).getTime() : 0;
+  if (existing.status === "processing" && Date.now() - lastTouch < WEBHOOK_LOCK_TTL_MS) {
+    return { status: "in_flight" };
+  }
+
+  // failed, or a stale "processing" claim from a crashed instance: take over atomically
+  let claim = (supabase.from("webhook_events") as any)
+    .update({ status: "processing", processed_at: nowIso })
+    .eq("event_id", eventId)
+    .eq("status", existing.status);
+  claim = existing.processed_at ? claim.eq("processed_at", existing.processed_at) : claim.is("processed_at", null);
+  const { data: claimed } = await claim.select("event_id");
+  return claimed && claimed.length > 0 ? { status: "retry" } : { status: "in_flight" };
 }
 
 async function finalizeWebhookEvent(
@@ -76,7 +79,7 @@ export default defineEventHandler(async (event) => {
     logger.error("Stripe Webhook: STRIPE_WEBHOOK_SECRET is not configured on the server");
     throw createError({
       statusCode: 500,
-      statusMessage: "STRIPE_WEBHOOK_SECRET is not configured on the server",
+      statusMessage: "Webhook endpoint is not configured",
     });
   }
 
@@ -88,7 +91,7 @@ export default defineEventHandler(async (event) => {
     logger.error("Stripe Webhook: Failed to initialize ServerContainer", { error: err.message });
     throw createError({
       statusCode: 500,
-      statusMessage: `Internal server configuration error: ${err.message}`,
+      statusMessage: "Internal server configuration error",
     });
   }
 
@@ -123,11 +126,15 @@ export default defineEventHandler(async (event) => {
     logger.warn("Stripe Webhook: Signature verification failed", { error: err.message });
     throw createError({
       statusCode: 400,
-      statusMessage: `Invalid Stripe signature: ${err.message}`,
+      statusMessage: "Invalid signature",
     });
   }
 
   const acquisition = await acquireWebhookEvent(supabase, stripeEvent.id, stripeEvent.type);
+  if (acquisition.status === "in_flight") {
+    // Another delivery of this event is being processed. 409 makes Stripe retry later.
+    throw createError({ statusCode: 409, statusMessage: "Event is being processed" });
+  }
   if (acquisition.status === "duplicate") {
     logger.info("Stripe Webhook: Duplicate event detected", {
       eventId: stripeEvent.id,
@@ -367,13 +374,13 @@ export default defineEventHandler(async (event) => {
             : refundRecord.orders;
           const orderNumber = ordersData?.order_number || "—";
           const adminHtml = `
-            <p>Stripe has confirmed the refund of $${parseFloat(refundRecord.amount).toFixed(2)} for Order #${orderNumber}.</p>
+            <p>Stripe has confirmed the refund of $${parseFloat(refundRecord.amount).toFixed(2)} for Order #${escapeHtml(orderNumber)}.</p>
             <p><strong>Refund Details:</strong></p>
             <ul>
-              <li>Order Number: #${orderNumber}</li>
-              <li>Refund ID: ${refundRecord.id}</li>
+              <li>Order Number: #${escapeHtml(orderNumber)}</li>
+              <li>Refund ID: ${escapeHtml(refundRecord.id)}</li>
               <li>Amount Refunded: $${parseFloat(refundRecord.amount).toFixed(2)}</li>
-              <li>Stripe Refund ID: ${stripeRefundId}</li>
+              <li>Stripe Refund ID: ${escapeHtml(stripeRefundId)}</li>
             </ul>
           `;
           await container.email.sendAdminNotification(
@@ -409,7 +416,7 @@ export default defineEventHandler(async (event) => {
     });
     throw createError({
       statusCode: 500,
-      statusMessage: `Webhook processing failed: ${message}`,
+      statusMessage: "Webhook processing failed",
     });
   }
 });

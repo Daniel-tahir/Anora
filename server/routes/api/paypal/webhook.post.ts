@@ -73,8 +73,9 @@ async function verifyPayPalWebhook(
 ): Promise<boolean> {
   const webhookId = env.paypalWebhookId;
   if (!webhookId) {
-    logger.warn("PayPal Webhook: PAYPAL_WEBHOOK_ID not configured — signature verification skipped");
-    return true; // Graceful degradation
+    // Fail closed: an unsigned PayPal event must never be trusted (it could fake refunds/payments).
+    logger.error("PayPal Webhook: PAYPAL_WEBHOOK_ID not configured — rejecting event");
+    return false;
   }
 
   const authAlgo = headers["paypal-auth-algo"];
@@ -162,7 +163,7 @@ export default defineEventHandler(async (event) => {
     logger.error("PayPal Webhook: Failed to initialize ServerContainer", { error: err.message });
     throw createError({
       statusCode: 500,
-      statusMessage: `Internal server configuration error: ${err.message}`,
+      statusMessage: "Internal server configuration error",
     });
   }
 
@@ -186,16 +187,15 @@ export default defineEventHandler(async (event) => {
     if (val) headers[key] = String(val);
   }
 
+  if (!env.paypalWebhookId) {
+    throw createError({ statusCode: 503, statusMessage: "Webhook endpoint is not configured" });
+  }
   const verified = await verifyPayPalWebhook(headers, rawBody);
   if (!verified) {
-    const webhookId = env.paypalWebhookId;
-    if (webhookId) {
-      logger.warn("PayPal Webhook: Signature verification failed");
-      throw createError({ statusCode: 400, statusMessage: "Invalid PayPal webhook signature" });
-    }
-  } else {
-    logger.info("PayPal Webhook: Signature verified");
+    logger.warn("PayPal Webhook: Signature verification failed");
+    throw createError({ statusCode: 400, statusMessage: "Invalid PayPal webhook signature" });
   }
+  logger.info("PayPal Webhook: Signature verified");
 
   const parsed = JSON.parse(rawBody) as {
     id?: string;
@@ -363,7 +363,7 @@ export default defineEventHandler(async (event) => {
     });
     throw createError({
       statusCode: 500,
-      statusMessage: `Webhook processing failed: ${message}`,
+      statusMessage: "Webhook processing failed",
     });
   }
 });

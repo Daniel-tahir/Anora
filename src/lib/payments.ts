@@ -62,6 +62,7 @@ const StripeCheckoutSchema = z.object({
 
 const UpdatePaymentIntentSchema = z.object({
   paymentIntentId: z.string().min(1),
+  clientSecret: z.string().min(10),
   email: z.string().email(),
   accessToken: z.string().optional(),
   shippingAddress: AddressSchema,
@@ -98,6 +99,9 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
       couponCode,
     } = data;
 
+    const { enforceRateLimit } = await import("../../server/lib/security");
+    await enforceRateLimit("pi-create", 30, 600);
+
     const userId = await getUserId(accessToken);
 
     const { createPaymentIntent: serverCreatePaymentIntent } =
@@ -117,42 +121,31 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
 export const createPayPalOrder = createServerFn({ method: "POST" })
   .validator(PayPalCreateSchema)
   .handler(async ({ data }) => {
-    const { email, items, shippingAddress, billingAddress, accessToken, couponCode } = data;
+    const { items, accessToken, couponCode } = data;
+
+    const { enforceRateLimit } = await import("../../server/lib/security");
+    await enforceRateLimit("paypal-create", 20, 600);
 
     // Optional token validation (non-blocking for guest)
     if (accessToken) {
       await getUserId(accessToken);
     }
 
-    const { createPayPalOrder: serverCreatePayPalOrder, validateAndBuildLineItems } =
+    const { createPayPalOrder: serverCreatePayPalOrder, buildPayPalQuote } =
       await import("../../server/lib/payments");
-    const { validateCoupon } = await import("../../server/lib/cart-validation");
-    const { validation, totals } = await validateAndBuildLineItems(items);
-
-    let discountAmount = 0;
-    if (couponCode) {
-      const couponVal = await validateCoupon(couponCode, totals.subtotal);
-      if (couponVal.ok) {
-        if (couponVal.discountType === "percentage") {
-          discountAmount = totals.subtotal * (couponVal.discountValue! / 100);
-        } else if (couponVal.discountType === "fixed") {
-          discountAmount = couponVal.discountValue!;
-        }
-      }
-    }
-
-    const discountedSubtotal = Math.max(0, totals.subtotal - discountAmount);
+    const quote = await buildPayPalQuote(items, couponCode);
 
     return await serverCreatePayPalOrder({
-      items: validation.items.map((v) => ({
+      items: quote.validation.items.map((v) => ({
         name: v.productName,
         quantity: v.quantity,
         unitAmount: Math.round(v.unitPrice * 100),
         description: "",
       })),
-      subtotal: Math.round(discountedSubtotal * 100),
-      shipping: Math.round(totals.shipping * 100),
-      tax: Math.round(totals.tax * 100),
+      subtotal: quote.subtotalCents,
+      discount: quote.discountCents,
+      shipping: quote.shippingCents,
+      tax: quote.taxCents,
     });
   });
 
@@ -167,6 +160,9 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
   .validator(StripeCheckoutSchema)
   .handler(async ({ data }) => {
     const { email, items, shippingAddress, billingAddress, accessToken } = data;
+
+    const { enforceRateLimit } = await import("../../server/lib/security");
+    await enforceRateLimit("stripe-session", 20, 600);
 
     const userId = await getUserId(accessToken);
 
@@ -196,47 +192,72 @@ export const createOrder = createServerFn({ method: "POST" })
 export const createOrderFromPayPal = createServerFn({ method: "POST" })
   .validator(PayPalCaptureSchema)
   .handler(async ({ data }) => {
-    const { paypalOrderId, accessToken, email, items, shippingAddress, billingAddress, paymentMethod, couponCode, discountAmount } = data;
+    // NOTE: `discountAmount` from the browser is intentionally ignored. Everything that affects the
+    // price is recomputed on the server from database prices and the (server-validated) coupon.
+    const { paypalOrderId, accessToken, email, items, shippingAddress, billingAddress, paymentMethod, couponCode } = data;
+
+    const { enforceRateLimit } = await import("../../server/lib/security");
+    await enforceRateLimit("paypal-order", 30, 600);
 
     const userId = await getUserId(accessToken);
 
-    const { capturePayPalOrder: serverCapturePayPal } =
+    const { capturePayPalOrder: serverCapturePayPal, getPayPalOrderSummary, buildPayPalQuote, assertPayPalPaymentMatches } =
       await import("../../server/lib/payments");
 
+    // 1. What should this cart cost? (database prices, server-side coupon maths)
+    const quote = await buildPayPalQuote(items, couponCode);
+
+    // 2. What did the customer actually approve at PayPal? Must match to the cent BEFORE we capture.
+    const summary = await getPayPalOrderSummary(paypalOrderId);
+    assertPayPalPaymentMatches(summary, quote.totalCents);
+
+    // 3. Capture (idempotent: returns the existing result if the browser already captured it)
     const captureResult = await serverCapturePayPal(paypalOrderId);
     if (captureResult.status !== "COMPLETED") {
       throw new Error("PayPal payment could not be verified.");
     }
+    const captured = captureResult.purchase_units?.[0]?.payments?.captures?.[0];
+    if (captured?.amount?.value !== undefined && Math.round(Number(captured.amount.value) * 100) !== quote.totalCents) {
+      throw new Error("PayPal captured amount does not match the cart total.");
+    }
 
+    // 4. Create the order from SERVER-VALIDATED items and prices
     const { createOrderFromPayPal: serverCreateFromPayPal } = await import("../../server/lib/order-lifecycle");
     return await serverCreateFromPayPal({
       userId,
       email,
       paypalOrderId,
-      items: items.map((i) => ({
-        productId: i.productId,
-        variantId: i.variantId ?? null,
-        size: i.size ?? "",
-        quantity: i.quantity,
-        unitPrice: 0, // will be refetched / validated from DB in pipeline
-        productName: "", // will be refetched / validated from DB in pipeline
+      items: quote.validation.items.map((v) => ({
+        productId: v.productId,
+        variantId: v.variantId ?? null,
+        size: v.size ?? "",
+        quantity: v.quantity,
+        unitPrice: v.unitPrice,
+        productName: v.productName,
+        imageUrl: v.imageUrl,
+        color: v.color,
+        variantName: v.variantName,
       })),
       shippingAddress: shippingAddress,
       billingAddress: billingAddress ?? shippingAddress,
-      total: 0, // will be refetched / validated from DB in pipeline
+      total: quote.totalCents / 100,
       paymentMethod,
-      couponCode,
-      discountAmount,
+      couponCode: quote.couponCode,
+      discountAmount: quote.discountAmount,
     });
   });
 
 export const updatePaymentIntent = createServerFn({ method: "POST" })
   .validator(UpdatePaymentIntentSchema)
   .handler(async ({ data }) => {
-    const { paymentIntentId, email, shippingAddress, billingAddress } = data;
+    const { paymentIntentId, clientSecret, email, shippingAddress, billingAddress } = data;
 
-    const { updatePaymentIntent: serverUpdatePaymentIntent } =
+    const { enforceRateLimit } = await import("../../server/lib/security");
+    await enforceRateLimit("pi-update", 40, 600);
+
+    const { updatePaymentIntent: serverUpdatePaymentIntent, assertPaymentIntentAccess } =
       await import("../../server/lib/payments");
+    await assertPaymentIntentAccess(paymentIntentId, clientSecret);
     return await serverUpdatePaymentIntent(paymentIntentId, {
       email,
       shippingAddress,
@@ -339,19 +360,20 @@ export const getInvoicePdfUrl = createServerFn({ method: "POST" })
 
     if (!invoiceRec) throw new Error("Invoice not found");
 
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
+    // Staff = any row in admin_roles (same definition as RLS is_staff() and verifyAdminAccess)
+    const { data: staffRow } = await supabaseAdmin
+      .from("admin_roles")
       .select("role")
-      .eq("id", userData.user.id)
+      .eq("user_id", userData.user.id)
       .maybeSingle();
 
-    const isStaff = profile?.role === "admin";
+    const isStaff = !!staffRow;
     if (invoiceRec.customer_id !== userData.user.id && !isStaff) {
       throw new Error("Access denied");
     }
 
-    const { getContainer } = await import("../../server/container");
-    const container = getContainer();
+    const { initContainer } = await import("../../server/container");
+    const container = await initContainer();
     const signedUrl = await container.invoice.getPdfUrl(invoiceId);
 
     return { signedUrl, invoiceNumber: invoiceRec.invoice_number };
@@ -367,6 +389,8 @@ export const calculateTax = createServerFn({ method: "POST" })
   .validator(CalculateTaxSchema)
   .handler(async ({ data }) => {
     const { items, shippingAddress, couponCode } = data;
+    const { enforceRateLimit } = await import("../../server/lib/security");
+    await enforceRateLimit("tax-calc", 60, 600);
     const { calculateStripeTaxOnServer } = await import("../../server/lib/payments");
     return await calculateStripeTaxOnServer({ items, shippingAddress, couponCode });
   });

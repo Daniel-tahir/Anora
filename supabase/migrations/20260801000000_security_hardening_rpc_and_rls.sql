@@ -19,7 +19,13 @@ REVOKE ALL ON SCHEMA app_private FROM PUBLIC, anon, authenticated;
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION app_private.is_privileged_session()
 RETURNS boolean LANGUAGE sql STABLE SET search_path = '' AS $$
-  SELECT coalesce(auth.role(), '') = 'service_role'
+  SELECT coalesce(
+           nullif(current_setting('request.jwt.claim.role', true), ''),
+           nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+           ''
+         ) = 'service_role'
+      -- direct DB sessions (SQL editor, pg_cron, migrations). PostgREST connects as `authenticator`,
+      -- so API callers can never match this.
       OR session_user IN ('postgres', 'supabase_admin', 'service_role')
 $$;
 
@@ -336,3 +342,6 @@ DROP POLICY IF EXISTS "Customers can update own pending reviews" ON public.revie
 DROP POLICY IF EXISTS "Allow public INSERT on blog_comments" ON public.blog_comments;
 CREATE POLICY "Allow public INSERT on blog_comments" ON public.blog_comments
   FOR INSERT WITH CHECK (approved = false);
+
+-- make PostgREST pick up the new/changed functions immediately
+NOTIFY pgrst, 'reload schema';
