@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { mapForgotPasswordError } from "@/lib/auth-errors";
 
 export const Route = createFileRoute("/forgot-password")({
-  head: () => ({ meta: [{ title: "Reset Password — ANORA" }] }),
+  head: () => ({
+    meta: [{ title: "Reset Password — ANORA" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: ForgotPasswordPage,
 });
 
@@ -23,7 +26,7 @@ function ForgotPasswordPage() {
     setSubmitting(false);
 
     if (resetError) {
-      setError(resetError.message);
+      setError(mapForgotPasswordError(resetError));
       return;
     }
 
@@ -36,8 +39,13 @@ function ForgotPasswordPage() {
         <span className="eyebrow">Check your inbox</span>
         <h1 className="font-serif text-4xl mt-4">Reset link sent</h1>
         <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
-          We've sent a password reset link to <strong className="text-foreground">{email}</strong>.
-          It expires in 1 hour.
+          Password reset email sent.
+        </p>
+        <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
+          If an account exists for this email address, you'll receive a password reset link shortly.
+        </p>
+        <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
+          Please also check your Spam or Junk folder.
         </p>
         <Link
           to="/login"

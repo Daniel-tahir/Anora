@@ -181,7 +181,7 @@ export function CustomersTable() {
       )}
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -257,7 +257,8 @@ export function CustomersTable() {
                   <TableCell>
                     <div>
                       <p className="font-medium">
-                        {customer.first_name ?? ""} {customer.last_name ?? ""}
+                        {[customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
+                          "Guest Customer"}
                       </p>
                       <p className="text-xs text-muted-foreground">{customer.email}</p>
                     </div>
@@ -275,7 +276,9 @@ export function CustomersTable() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(customer.registration_date).toLocaleDateString()}
+                    {customer.registration_date
+                      ? new Date(customer.registration_date).toLocaleDateString()
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {customer.last_activity

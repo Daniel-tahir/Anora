@@ -1,5 +1,5 @@
 import { getHeader, createError, defineEventHandler, getQuery } from "h3";
-import { verifyAdminAccess, getLowStockProducts } from "../../../lib/admin";
+import { verifyAdminAccess, getLowStockProducts } from "../../../../lib/admin";
 
 export default defineEventHandler(async (event) => {
   const authorization = getHeader(event, "authorization") ?? "";

@@ -35,7 +35,7 @@ import {
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [{ title: "Admin Dashboard — ANORA" }],
+    meta: [{ title: "Admin Dashboard — ANORA" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: AdminPage,
 });
@@ -45,7 +45,7 @@ type CardDef = {
   label: string;
   getValue: (s: AnalyticsSummary) => string;
   icon: React.ReactNode;
-  accent: string;
+  iconClass: string;
 };
 
 const REVENUE_CARDS: CardDef[] = [
@@ -54,28 +54,28 @@ const REVENUE_CARDS: CardDef[] = [
     label: "Total Revenue",
     getValue: (s) => `$${s.totalRevenue.toLocaleString()}`,
     icon: <DollarSign className="h-4 w-4" />,
-    accent: "text-emerald-600 dark:text-emerald-400",
+    iconClass: "text-emerald-600 dark:text-emerald-400",
   },
   {
     key: "revenueToday",
     label: "Revenue Today",
     getValue: (s) => `$${s.revenueToday.toLocaleString()}`,
     icon: <TrendingUp className="h-4 w-4" />,
-    accent: "text-emerald-500 dark:text-emerald-300",
+    iconClass: "text-emerald-500 dark:text-emerald-300",
   },
   {
     key: "revenueThisWeek",
-    label: "Revenue This Week",
+    label: "This Week",
     getValue: (s) => `$${s.revenueThisWeek.toLocaleString()}`,
     icon: <TrendingUp className="h-4 w-4" />,
-    accent: "text-emerald-500 dark:text-emerald-300",
+    iconClass: "text-emerald-500 dark:text-emerald-300",
   },
   {
     key: "revenueThisMonth",
-    label: "Revenue This Month",
+    label: "This Month",
     getValue: (s) => `$${s.revenueThisMonth.toLocaleString()}`,
     icon: <TrendingUp className="h-4 w-4" />,
-    accent: "text-emerald-500 dark:text-emerald-300",
+    iconClass: "text-emerald-500 dark:text-emerald-300",
   },
 ];
 
@@ -85,56 +85,56 @@ const ORDER_CARDS: CardDef[] = [
     label: "Total Orders",
     getValue: (s) => s.totalOrders.toLocaleString(),
     icon: <ShoppingCart className="h-4 w-4" />,
-    accent: "text-sky-600 dark:text-sky-400",
+    iconClass: "text-sky-600 dark:text-sky-400",
   },
   {
     key: "pendingOrders",
     label: "Pending",
     getValue: (s) => s.pendingOrders.toLocaleString(),
     icon: <Clock className="h-4 w-4" />,
-    accent: "text-amber-600 dark:text-amber-400",
+    iconClass: "text-amber-600 dark:text-amber-400",
   },
   {
     key: "confirmedOrders",
     label: "Confirmed",
     getValue: (s) => s.confirmedOrders.toLocaleString(),
     icon: <CheckCircle className="h-4 w-4" />,
-    accent: "text-blue-600 dark:text-blue-400",
+    iconClass: "text-blue-600 dark:text-blue-400",
   },
   {
     key: "processingOrders",
     label: "Processing",
     getValue: (s) => s.processingOrders.toLocaleString(),
     icon: <ArrowRightLeft className="h-4 w-4" />,
-    accent: "text-purple-600 dark:text-purple-400",
+    iconClass: "text-purple-600 dark:text-purple-400",
   },
   {
     key: "shippedOrders",
     label: "Shipped",
     getValue: (s) => s.shippedOrders.toLocaleString(),
     icon: <Package className="h-4 w-4" />,
-    accent: "text-cyan-600 dark:text-cyan-400",
+    iconClass: "text-cyan-600 dark:text-cyan-400",
   },
   {
     key: "deliveredOrders",
     label: "Delivered",
     getValue: (s) => s.deliveredOrders.toLocaleString(),
     icon: <CheckCircle className="h-4 w-4" />,
-    accent: "text-emerald-600 dark:text-emerald-400",
+    iconClass: "text-emerald-600 dark:text-emerald-400",
   },
   {
     key: "cancelledOrders",
     label: "Cancelled",
     getValue: (s) => s.cancelledOrders.toLocaleString(),
     icon: <XCircle className="h-4 w-4" />,
-    accent: "text-red-600 dark:text-red-400",
+    iconClass: "text-red-600 dark:text-red-400",
   },
   {
     key: "refundedOrders",
     label: "Refunded",
     getValue: (s) => s.refundedOrders.toLocaleString(),
     icon: <RotateCcw className="h-4 w-4" />,
-    accent: "text-stone-600 dark:text-stone-400",
+    iconClass: "text-stone-600 dark:text-stone-400",
   },
 ];
 
@@ -144,21 +144,21 @@ const CUSTOMER_CARDS: CardDef[] = [
     label: "Total Customers",
     getValue: (s) => s.totalCustomers.toLocaleString(),
     icon: <Users className="h-4 w-4" />,
-    accent: "text-violet-600 dark:text-violet-400",
+    iconClass: "text-violet-600 dark:text-violet-400",
   },
   {
     key: "newCustomers",
     label: "New This Month",
     getValue: (s) => s.newCustomers.toLocaleString(),
     icon: <UserPlus className="h-4 w-4" />,
-    accent: "text-indigo-500 dark:text-indigo-300",
+    iconClass: "text-indigo-500 dark:text-indigo-300",
   },
   {
     key: "returningCustomers",
     label: "Returning",
     getValue: (s) => s.returningCustomers.toLocaleString(),
     icon: <Users className="h-4 w-4" />,
-    accent: "text-teal-600 dark:text-teal-400",
+    iconClass: "text-teal-600 dark:text-teal-400",
   },
 ];
 
@@ -168,28 +168,28 @@ const PRODUCT_CARDS: CardDef[] = [
     label: "Total Products",
     getValue: (s) => s.totalProducts.toLocaleString(),
     icon: <Tag className="h-4 w-4" />,
-    accent: "text-indigo-600 dark:text-indigo-400",
+    iconClass: "text-indigo-600 dark:text-indigo-400",
   },
   {
     key: "activeProducts",
     label: "Active",
     getValue: (s) => s.activeProducts.toLocaleString(),
     icon: <CheckCircle className="h-4 w-4" />,
-    accent: "text-green-600 dark:text-green-400",
+    iconClass: "text-green-600 dark:text-green-400",
   },
   {
     key: "lowStockProducts",
     label: "Low Stock",
     getValue: (s) => s.lowStockProducts.toLocaleString(),
     icon: <AlertTriangle className="h-4 w-4" />,
-    accent: "text-orange-600 dark:text-orange-400",
+    iconClass: "text-orange-600 dark:text-orange-400",
   },
   {
     key: "totalCategories",
     label: "Categories",
     getValue: (s) => s.totalCategories.toLocaleString(),
     icon: <Layers className="h-4 w-4" />,
-    accent: "text-pink-600 dark:text-pink-400",
+    iconClass: "text-pink-600 dark:text-pink-400",
   },
 ];
 
@@ -203,6 +203,17 @@ function formatRelativeTime(ms: number): string {
   const hours = Math.floor(minutes / 60);
   if (hours === 1) return "1 hour ago";
   return `${hours} hours ago`;
+}
+
+function SectionHeader({ label, description }: { label: string; description?: string }) {
+  return (
+    <div className="mb-5">
+      <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground/70 font-medium">
+        {label}
+      </p>
+      {description && <p className="text-xs text-muted-foreground/50 mt-0.5">{description}</p>}
+    </div>
+  );
 }
 
 function CardGrid({
@@ -221,7 +232,7 @@ function CardGrid({
           key={c.key}
           label={c.label}
           value={summary ? c.getValue(summary) : undefined}
-          icon={<span className={c.accent}>{c.icon}</span>}
+          icon={<span className={c.iconClass}>{c.icon}</span>}
           loading={loading}
         />
       ))}
@@ -231,8 +242,8 @@ function CardGrid({
 
 function SectionError({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="col-span-full border border-red/20 bg-red/5 p-8 text-center">
-      <p className="text-sm text-red/80">{error}</p>
+    <div className="col-span-full border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-8 text-center rounded-lg">
+      <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
       <button
         onClick={onRetry}
         className="mt-4 text-[11px] tracking-[0.32em] uppercase text-muted-foreground hover:text-foreground transition-colors"
@@ -278,6 +289,7 @@ function AdminPage() {
 
   return (
     <AdminLayout>
+      {/* Page header */}
       <div className="mb-10">
         <p className="eyebrow">Admin</p>
         <h1 className="font-serif text-4xl mt-2">Dashboard</h1>
@@ -286,23 +298,24 @@ function AdminPage() {
         </p>
       </div>
 
+      {/* Refresh bar */}
       <div className="flex items-center gap-3 mb-10">
-        <span className="text-[10px] sm:text-[11px] tracking-[0.2em] text-muted-foreground whitespace-nowrap">
+        <span className="text-[10px] sm:text-[11px] tracking-[0.2em] text-muted-foreground/60 whitespace-nowrap">
           Updated {timestamp}
         </span>
         <button
           onClick={refetch}
-          className="border border-border/60 p-2 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+          className="border border-border/50 p-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-40 disabled:pointer-events-none rounded-md"
           aria-label="Refresh dashboard"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {error && !loading && <SectionError error={error} onRetry={refetch} />}
 
       {loading && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {allCards.map((c) => (
             <DashboardCard key={c.key} label={c.label} loading />
           ))}
@@ -310,48 +323,46 @@ function AdminPage() {
       )}
 
       {!error && !loading && (
-        <>
+        <div className="space-y-10">
+          {/* Revenue */}
           <section>
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
-              Revenue
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <SectionHeader label="Revenue" description="All-time and period revenue" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <CardGrid cards={REVENUE_CARDS} summary={summary} loading={false} />
             </div>
           </section>
 
-          <section className="mt-8">
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
-              Orders
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Orders */}
+          <section>
+            <SectionHeader label="Orders" description="Order volume by status" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <CardGrid cards={ORDER_CARDS} summary={summary} loading={false} />
             </div>
           </section>
 
-          <section className="mt-8">
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
-              Customers
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {/* Customers */}
+          <section>
+            <SectionHeader label="Customers" description="Acquisition and retention" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <CardGrid cards={CUSTOMER_CARDS} summary={summary} loading={false} />
             </div>
           </section>
 
-          <section className="mt-8">
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
-              Products &amp; Categories
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Products */}
+          <section>
+            <SectionHeader
+              label="Products & Catalogue"
+              description="Inventory and catalogue status"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <CardGrid cards={PRODUCT_CARDS} summary={summary} loading={false} />
             </div>
           </section>
 
-          <section className="mt-8">
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
-              Coupons
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Coupons */}
+          <section>
+            <SectionHeader label="Coupons" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <DashboardCard
                 label="Total Coupons"
                 value={couponData?.total_coupons.toLocaleString()}
@@ -379,11 +390,10 @@ function AdminPage() {
             </div>
           </section>
 
-          <section className="mt-8">
-            <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
-              Gift Cards
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Gift Cards */}
+          <section>
+            <SectionHeader label="Gift Cards" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <DashboardCard
                 label="Total"
                 value={giftCardData?.total_gift_cards.toLocaleString()}
@@ -414,38 +424,40 @@ function AdminPage() {
               />
             </div>
           </section>
-        </>
+        </div>
       )}
 
-      <section className="mt-16 border-t border-border/40 pt-12">
+      {/* Analytics charts */}
+      <section className="mt-16 pt-14 border-t border-border/30">
         <SalesChart />
       </section>
 
-      <section className="mt-14 border-t border-border/40 pt-12">
+      <section className="mt-14 pt-14 border-t border-border/30">
         <RevenueChart />
       </section>
 
-      <section className="mt-14 border-t border-border/40 pt-12">
+      <section className="mt-14 pt-14 border-t border-border/30">
         <OrdersAnalytics />
       </section>
 
-      <section className="mt-14 border-t border-border/40 pt-12">
+      <section className="mt-14 pt-14 border-t border-border/30">
         <CustomerAnalytics />
       </section>
 
-      <section className="mt-14 border-t border-border/40 pt-12">
+      <section className="mt-14 pt-14 border-t border-border/30">
         <ProductAnalytics />
       </section>
 
-      <section className="mt-14 border-t border-border/40 pt-12">
+      {/* Recent tables */}
+      <section className="mt-16 pt-14 border-t border-border/30">
         <RecentOrdersTable />
       </section>
 
-      <section className="mt-14 border-t border-border/40 pt-12">
+      <section className="mt-14 pt-14 border-t border-border/30">
         <RecentCustomersTable />
       </section>
 
-      <section className="mt-14">
+      <section className="mt-14 pt-14 border-t border-border/30">
         <LowStockWidget />
       </section>
     </AdminLayout>

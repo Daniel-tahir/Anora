@@ -1,21 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { toast } from "sonner";
+import { useSiteSettings, DEFAULT_SITE_SETTINGS } from "@/lib/site-settings";
+import { SITE_URL } from "@/lib/config";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — ANORA" },
+      { title: "Contact Us | ANORA New York" },
       {
         name: "description",
         content: "Reach the ANORA atelier — WhatsApp, email, and our flagship address.",
       },
+      { name: "robots", content: "index, follow" },
+      { property: "og:title", content: "Contact Us | ANORA New York" },
+      {
+        property: "og:description",
+        content: "Reach the ANORA atelier — WhatsApp, email, and our flagship address.",
+      },
+      { property: "og:url", content: `${SITE_URL}/contact` },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: `${SITE_URL}/logo.png` },
+      { property: "og:site_name", content: "ANORA" },
+      { property: "og:locale", content: "en_US" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Contact Us | ANORA New York" },
+      {
+        name: "twitter:description",
+        content: "Reach the ANORA atelier — WhatsApp, email, and our flagship address.",
+      },
+      { name: "twitter:image", content: `${SITE_URL}/logo.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/contact` }],
   }),
   component: Contact,
 });
 
 function Contact() {
+  const { data: settings } = useSiteSettings();
   return (
     <div className="px-5 lg:px-10 py-16 max-w-6xl mx-auto">
       <div className="text-center mb-14">
@@ -59,25 +81,33 @@ function Contact() {
           <Info
             icon={<MessageCircle className="h-4 w-4" />}
             label="WhatsApp"
-            value="+1 (347) 325-6525"
-            href="https://wa.me/15555555555"
+            value={settings?.phone ?? DEFAULT_SITE_SETTINGS.phone ?? "+1 (212) 555-0199"}
+            href={
+              settings?.whatsapp_url ??
+              DEFAULT_SITE_SETTINGS.whatsapp_url ??
+              "https://wa.me/13473256525?text=Hello%20ANORA"
+            }
           />
           <Info
             icon={<Mail className="h-4 w-4" />}
             label="Email"
-            value="care@anora.com"
-            href="mailto:care@anora.com"
+            value={settings?.email ?? DEFAULT_SITE_SETTINGS.email ?? "care@anora.com"}
+            href={`mailto:${settings?.email ?? DEFAULT_SITE_SETTINGS.email ?? "care@anora.com"}`}
           />
           <Info
             icon={<Phone className="h-4 w-4" />}
             label="Phone"
-            value="+1 (212) 555-0199"
-            href="tel:+12125550199"
+            value={settings?.phone ?? DEFAULT_SITE_SETTINGS.phone ?? "+1 (212) 555-0199"}
+            href={`tel:${(settings?.phone ?? DEFAULT_SITE_SETTINGS.phone ?? "+1 (212) 555-0199").replace(/[^+\d]/g, "")}`}
           />
           <Info
             icon={<MapPin className="h-4 w-4" />}
             label="Atelier"
-            value="12 Atelier Lane, SoHo, New York, NY 10012"
+            value={
+              settings?.address ??
+              DEFAULT_SITE_SETTINGS.address ??
+              "12 Atelier Lane, SoHo, New York, NY 10012"
+            }
           />
 
           <div className="overflow-hidden">

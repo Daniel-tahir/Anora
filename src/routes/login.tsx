@@ -1,22 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { mapSignInError } from "@/lib/auth-errors";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    redirectTo: typeof search.redirectTo === "string" ? search.redirectTo : "/account",
+  validateSearch: (search: Record<string, unknown>): {
+    redirectTo?: string;
+    confirmed?: string;
+  } => ({
+    redirectTo: typeof search.redirectTo === "string" ? search.redirectTo : undefined,
     confirmed: typeof search.confirmed === "string" ? search.confirmed : undefined,
   }),
-  head: () => ({ meta: [{ title: "Sign In — ANORA" }] }),
+  head: () => ({
+    meta: [
+      { title: "Sign In — ANORA" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const { user, loading, signIn } = useAuth();
-  const { redirectTo, confirmed } = Route.useSearch();
+  const search = Route.useSearch();
+  const rawRedirect = search.redirectTo;
+  const redirectTo =
+    typeof rawRedirect === "string" && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//")
+      ? rawRedirect
+      : "/account";
+  const confirmed = search.confirmed;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +40,7 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const shouldRedirect = !loading && user && !confirmed;
+  const shouldRedirect = !loading && user && !user.is_anonymous && !confirmed;
 
   useEffect(() => {
     if (shouldRedirect) {
@@ -33,8 +48,12 @@ function LoginPage() {
     }
   }, [shouldRedirect, redirectTo]);
 
-  if (loading) return null;
-  if (user && !confirmed) return null;
+  if (loading) {
+    return <div className="px-5 lg:px-10 py-20 max-w-md mx-auto min-h-[520px]" aria-busy="true" />;
+  }
+  if (user && !user.is_anonymous && !confirmed) {
+    return <div className="px-5 lg:px-10 py-20 max-w-md mx-auto min-h-[520px]" aria-busy="true" />;
+  }
 
   const isLoggedInAndConfirmed = user && confirmed;
 
@@ -53,7 +72,7 @@ function LoginPage() {
     setSubmitting(false);
 
     if (signInError) {
-      setError(signInError.message);
+      setError(mapSignInError(signInError));
       return;
     }
 
@@ -149,7 +168,7 @@ function LoginPage() {
               <Link to="/forgot-password" className="hover-underline text-muted-foreground">
                 Forgot password?
               </Link>
-              <Link to="/register" className="hover-underline">
+              <Link to="/register" search={{ redirectTo }} className="hover-underline">
                 Create account
               </Link>
             </div>

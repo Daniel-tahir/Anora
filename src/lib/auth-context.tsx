@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/account`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     return { error };
   };
@@ -228,7 +228,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && (!user || user.is_anonymous)) {
       navigate({
         to: "/login",
         search: { redirectTo: window.location.pathname, confirmed: undefined },
@@ -244,7 +244,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  if (!user || user.is_anonymous) return null;
 
   return <>{children}</>;
 }

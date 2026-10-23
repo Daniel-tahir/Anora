@@ -46,16 +46,16 @@ function LowStockSkeleton() {
 
 function LowStockEmptyState() {
   return (
-    <div className="border border-border/60 p-10 text-center">
-      <p className="text-sm text-muted-foreground">All products are well-stocked</p>
+    <div className="border border-border/40 bg-muted/20 p-14 text-center rounded-lg">
+      <p className="text-sm text-emerald-600 dark:text-emerald-400">✓ All products are well-stocked</p>
     </div>
   );
 }
 
 function LowStockErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="border border-red/20 bg-red/5 p-6 text-center">
-      <p className="text-sm text-red/80">{message}</p>
+    <div className="border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6 text-center rounded-lg">
+      <p className="text-sm text-red-700 dark:text-red-400">{message}</p>
       <Button variant="outline" size="sm" onClick={onRetry} className="mt-3">
         Retry
       </Button>
@@ -117,8 +117,11 @@ export function LowStockWidget() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="font-serif text-xl">Low Stock Products</h3>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+          <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground/60 font-medium mb-0.5">Inventory Alert</p>
+          <h3 className="font-serif text-xl">Low Stock Products</h3>
+        </div>
         <Input
           placeholder="Search products…"
           value={searchInput}
@@ -150,7 +153,7 @@ export function LowStockWidget() {
                 {result.products.map((p: LowStockProductRow) => {
                   const status = getStockStatus(p.stock);
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} className="hover:bg-muted/40 transition-colors">
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground font-mono">
                         {p.sku ?? "—"}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableHeader,
@@ -44,7 +44,7 @@ export function CategoriesTable() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const pageSize = 20;
+  const pageSize = 1000;
 
   const { result, loading, error, refetch } = useCategoriesManagement(
     page,
@@ -53,6 +53,74 @@ export function CategoriesTable() {
     sortBy,
     sortDir,
   );
+
+  const categoriesList = useMemo(() => {
+    if (!result?.categories) return [];
+    
+    const parentsMap = new Map<string, string>();
+    for (const c of result.categories) {
+      parentsMap.set(c.id, c.name);
+    }
+    
+    const nodeMap = new Map<string, any>();
+    for (const c of result.categories) {
+      nodeMap.set(c.id, {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        description: c.description,
+        image_url: c.image_url,
+        sort_order: c.sort_order,
+        parent_id: c.parent_id,
+        product_count: c.product_count,
+        children: []
+      });
+    }
+    
+    const roots: any[] = [];
+    for (const c of result.categories) {
+      const node = nodeMap.get(c.id);
+      if (node) {
+        if (node.parent_id && nodeMap.has(node.parent_id)) {
+          nodeMap.get(node.parent_id).children.push(node);
+        } else {
+          roots.push(node);
+        }
+      }
+    }
+    
+    const sortNodes = (nodes: any[]) => {
+      nodes.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+      for (const node of nodes) {
+        if (node.children.length > 0) {
+          sortNodes(node.children);
+        }
+      }
+    };
+    sortNodes(roots);
+    
+    const flattened: any[] = [];
+    const traverse = (nodes: any[], depth = 0) => {
+      for (const node of nodes) {
+        const original = result.categories.find((x) => x.id === node.id);
+        if (original) {
+          flattened.push({
+            ...original,
+            product_count: node.product_count,
+            depth
+          });
+        }
+        traverse(node.children, depth + 1);
+      }
+    };
+    traverse(roots);
+    
+    if (search.trim()) {
+      return result.categories.map((c) => ({ ...c, depth: 0 }));
+    }
+    
+    return flattened;
+  }, [result?.categories, search]);
 
   function handleSort(column: string) {
     if (sortBy === column) {
@@ -95,7 +163,7 @@ export function CategoriesTable() {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -133,14 +201,17 @@ export function CategoriesTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              result?.categories.map((cat) => (
+              categoriesList.map((cat: any) => (
                 <TableRow key={cat.id}>
                   <TableCell className="font-medium">
-                    {cat.parent_id ? (
-                      <span className="ml-4">{cat.name}</span>
-                    ) : (
-                      <strong>{cat.name}</strong>
-                    )}
+                    <div style={{ paddingLeft: `${cat.depth * 16}px` }} className="flex items-center gap-1.5">
+                      {cat.depth > 0 && <span className="text-muted-foreground/50 font-mono">└─</span>}
+                      {cat.depth === 0 ? (
+                        <strong>{cat.name}</strong>
+                      ) : (
+                        <span>{cat.name}</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {cat.parent_name ?? "—"}
@@ -221,12 +292,8 @@ function CreateCategoryDialog({ onSuccess }: { onSuccess: () => void }) {
       setError("Slug is required");
       return;
     }
-    if (!parentId) {
-      setError("Parent category is required");
-      return;
-    }
     setLoading(true);
-    const result = await createCategory(name.trim(), slug.trim(), parentId);
+    const result = await createCategory(name.trim(), slug.trim(), parentId || null);
     setLoading(false);
     if (result.success) {
       setOpen(false);
@@ -241,11 +308,11 @@ function CreateCategoryDialog({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button onClick={() => setOpen(true)}>Add Subcategory</Button>
+      <Button onClick={() => setOpen(true)}>Add Category</Button>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Subcategory</DialogTitle>
-          <DialogDescription>Add a new subcategory under Clothing or Jewellery.</DialogDescription>
+          <DialogTitle>Create Category</DialogTitle>
+          <DialogDescription>Add a new category (optionally under a parent category).</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -308,7 +375,7 @@ function EditCategoryDialog({
   const [parents, setParents] = useState<ParentCategoryOption[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const isRoot = !category.parent_id;
+  const cannotEditParent = category.slug === "clothing" || category.slug === "jewellery";
 
   useEffect(() => {
     if (open)
@@ -338,7 +405,7 @@ function EditCategoryDialog({
       category.id,
       name.trim(),
       slug.trim(),
-      isRoot ? null : parentId || null,
+      cannotEditParent ? null : parentId || null,
     );
     setLoading(false);
     if (result.success) {
@@ -370,7 +437,7 @@ function EditCategoryDialog({
           <DialogDescription>Update category details.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!isRoot && (
+          {!cannotEditParent && (
             <div className="space-y-2">
               <Label htmlFor="edit-parent">Parent Category</Label>
               <select
@@ -381,9 +448,11 @@ function EditCategoryDialog({
               >
                 <option value="">Select parent...</option>
                 {parents.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  p.id !== category.id && (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  )
                 ))}
               </select>
             </div>

@@ -8,6 +8,7 @@ import { InvoiceService } from "../services/invoice";
 import { EmailService, initEmailService } from "../services/email";
 import { QueueService } from "../services/queue";
 import type { JobRecord } from "../services/queue";
+import { RefundService } from "../services/refund";
 
 export class ServerContainer {
   private _supabase: ReturnType<typeof createClient> | null = null;
@@ -16,6 +17,7 @@ export class ServerContainer {
   private _invoice: InvoiceService | null = null;
   private _email: EmailService | null = null;
   private _queue: QueueService | null = null;
+  private _refund: RefundService | null = null;
   private _initialized = false;
 
   async initialize(): Promise<void> {
@@ -36,7 +38,7 @@ export class ServerContainer {
 
     // 3. Initialize Stripe
     this._stripe = new Stripe(env.stripeSecretKey, {
-      apiVersion: config.stripe.apiVersion,
+      apiVersion: config.stripe.apiVersion as any,
       typescript: true,
     });
     logger.info("Stripe client created");
@@ -53,6 +55,10 @@ export class ServerContainer {
 
     // 6. Initialize invoice service
     this._invoice = new InvoiceService(this.supabase, this.storage);
+
+    // 6b. Initialize refund service
+    this._refund = new RefundService(this.supabase, this.stripe, this._email);
+    logger.info("Refund service initialized");
 
     // 7. Initialize queue with handlers
     this._queue = new QueueService(this.supabase);
@@ -93,6 +99,7 @@ export class ServerContainer {
         customerEmail?: string;
         orderNumber?: string;
         thankYouHtml?: string;
+        invoiceNumber?: string;
       };
       if (!payload.customerEmail || !payload.thankYouHtml) {
         logger.error("Missing email data in job payload", {
@@ -113,69 +120,48 @@ export class ServerContainer {
         });
         throw new Error("Missing email data in job payload");
       }
+
+      let pdfAttachment: { filename: string; content: Buffer } | undefined;
+
+      // Attach PDF if available
+      if (payload.invoiceNumber) {
+        try {
+          const { data: invoiceRec } = await (this.supabase
+            .from("invoices") as any)
+            .select("pdf_path")
+            .eq("invoice_number", payload.invoiceNumber)
+            .single();
+
+          if (invoiceRec?.pdf_path) {
+            const pdfResult = await this.storage.download(invoiceRec.pdf_path);
+            pdfAttachment = {
+              filename: `${payload.invoiceNumber}.pdf`,
+              content: Buffer.from(pdfResult.data),
+            };
+          }
+        } catch (err) {
+          logger.warn("Failed to fetch/download invoice PDF for thank-you confirmation email", {
+            orderId: job.order_id,
+            invoiceNumber: payload.invoiceNumber,
+            error: String(err),
+          });
+        }
+      }
+
       await this.email.sendThankYou(
         payload.customerEmail,
         payload.orderNumber || "",
         payload.thankYouHtml,
+        pdfAttachment,
         job.order_id,
       );
     });
 
     // send_invoice_email
     this._queue.register("send_invoice_email", async (job: JobRecord) => {
-      const payload = job.payload as {
-        customerEmail?: string;
-        invoiceEmailHtml?: string;
-        invoiceNumber?: string;
-      };
-      if (!payload.customerEmail || !payload.invoiceEmailHtml) {
-        logger.error("Missing invoice email data in job payload", {
-          jobId: job.id,
-          orderId: job.order_id,
-          payloadType: typeof job.payload,
-          payloadIsNull: job.payload === null,
-          payloadKeys:
-            typeof job.payload === "object" && job.payload !== null
-              ? Object.keys(job.payload as Record<string, unknown>)
-              : [],
-          customerEmailType: typeof payload.customerEmail,
-          customerEmailValue: payload.customerEmail
-            ? payload.customerEmail.substring(0, 50)
-            : "EMPTY",
-          invoiceEmailHtmlType: typeof payload.invoiceEmailHtml,
-          invoiceEmailHtmlLength: payload.invoiceEmailHtml?.length ?? 0,
-        });
-        throw new Error("Missing invoice email data in job payload");
-      }
-
-      let pdfAttachment: { filename: string; content: Buffer } | undefined;
-
-      // Attach PDF if available
-      try {
-        const { data: invoiceRec } = await this.supabase
-          .from("invoices")
-          .select("pdf_path")
-          .eq("invoice_number", payload.invoiceNumber)
-          .single();
-
-        if (invoiceRec?.pdf_path) {
-          const pdfResult = await this.storage.download(invoiceRec.pdf_path);
-          pdfAttachment = {
-            filename: `${payload.invoiceNumber}.pdf`,
-            content: Buffer.from(pdfResult.data),
-          };
-        }
-      } catch {
-        // PDF not available yet — send without attachment
-      }
-
-      await this.email.sendInvoice(
-        payload.customerEmail,
-        payload.invoiceNumber || "",
-        payload.invoiceEmailHtml,
-        pdfAttachment,
-        job.order_id,
-      );
+      logger.info("Job: send_invoice_email - skipped (merged into order confirmation email)", {
+        orderId: job.order_id,
+      });
     });
 
     // send_admin_email
@@ -208,7 +194,7 @@ export class ServerContainer {
 
     // analytics_events
     this._queue.register("analytics_events", async (job: JobRecord) => {
-      await this.supabase.from("audit_logs").insert({
+      await (this.supabase.from("audit_logs") as any).insert({
         event_type: "purchase",
         entity_type: "order",
         entity_id: job.order_id,
@@ -219,7 +205,7 @@ export class ServerContainer {
 
     // application_logs
     this._queue.register("application_logs", async (job: JobRecord) => {
-      await this.supabase.from("audit_logs").insert({
+      await (this.supabase.from("audit_logs") as any).insert({
         event_type: "order_processing",
         entity_type: "order",
         entity_id: job.order_id,
@@ -229,6 +215,91 @@ export class ServerContainer {
         },
         created_at: new Date().toISOString(),
       });
+    });
+
+    // send_review_email
+    this._queue.register("send_review_email", async (job: JobRecord) => {
+      logger.info("Job: send_review_email", { orderId: job.order_id });
+
+      const { data: order, error: orderErr } = await (this.supabase
+        .from("orders") as any)
+        .select("id, email, shipping_address, user_id")
+        .eq("id", job.order_id)
+        .single();
+
+      if (orderErr || !order) {
+        throw new Error(`Order not found for review request: ${orderErr?.message || "empty"}`);
+      }
+
+      const { data: items, error: itemsErr } = await (this.supabase
+        .from("order_items") as any)
+        .select("id, name, product_id, image_url")
+        .eq("order_id", job.order_id);
+
+      if (itemsErr || !items) {
+        throw new Error(`Order items not found for review request: ${itemsErr?.message || "empty"}`);
+      }
+
+      const eligibleProducts: Array<{ name: string; imageUrl?: string; reviewUrl: string }> = [];
+
+      for (const item of items) {
+        const { count, error: reviewCheckErr } = await (this.supabase
+          .from("reviews") as any)
+          .select("id", { count: "exact", head: true })
+          .eq("order_item_id", item.id);
+
+        if (reviewCheckErr) continue;
+
+        if ((count ?? 0) === 0) {
+          // Create a cryptographically secure token
+          const { data: tokenRec, error: tokenErr } = await (this.supabase
+            .from("review_tokens") as any)
+            .insert({
+              order_id: job.order_id,
+              order_item_id: item.id,
+              email: order.email,
+            })
+            .select("token")
+            .single();
+
+          if (tokenErr || !tokenRec) {
+            logger.error("Failed to generate review token", { orderItemId: item.id, error: tokenErr?.message });
+            continue;
+          }
+
+          eligibleProducts.push({
+            name: item.name,
+            imageUrl: item.image_url || undefined,
+            reviewUrl: `${env.publicAppUrl || "https://anora-sooty.vercel.app"}/review/${tokenRec.token}`,
+          });
+        }
+      }
+
+      if (eligibleProducts.length === 0) {
+        logger.info("No eligible products found for review request — skipping email", { orderId: job.order_id });
+        return;
+      }
+
+      let customerName = "Valued Customer";
+      if (order.user_id) {
+        const { data: profile } = await (this.supabase
+          .from("profiles") as any)
+          .select("first_name, last_name")
+          .eq("id", order.user_id)
+          .single();
+        if (profile?.first_name) {
+          customerName = profile.first_name;
+        }
+      } else {
+        const sa = order.shipping_address as any;
+        if (sa?.firstName) {
+          customerName = sa.firstName;
+        } else if (sa?.first_name) {
+          customerName = sa.first_name;
+        }
+      }
+
+      await this.email.sendReviewRequest(order.email, customerName, eligibleProducts, job.order_id);
     });
   }
 
@@ -256,6 +327,11 @@ export class ServerContainer {
   get email(): EmailService {
     if (!this._email) throw new Error("ServerContainer not initialized");
     return this._email;
+  }
+
+  get refund(): RefundService {
+    if (!this._refund) throw new Error("ServerContainer not initialized");
+    return this._refund;
   }
 
   get queue(): QueueService {

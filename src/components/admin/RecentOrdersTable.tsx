@@ -44,7 +44,7 @@ function OrdersTableSkeleton() {
 
 function OrdersEmptyState() {
   return (
-    <div className="border border-border/60 p-10 text-center">
+    <div className="border border-border/40 bg-muted/20 p-14 text-center rounded-lg">
       <p className="text-sm text-muted-foreground">No orders found</p>
     </div>
   );
@@ -52,8 +52,8 @@ function OrdersEmptyState() {
 
 function OrdersErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="border border-red/20 bg-red/5 p-6 text-center">
-      <p className="text-sm text-red/80">{message}</p>
+    <div className="border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6 text-center rounded-lg">
+      <p className="text-sm text-red-700 dark:text-red-400">{message}</p>
       <Button variant="outline" size="sm" onClick={onRetry} className="mt-3">
         Retry
       </Button>
@@ -130,8 +130,11 @@ export function RecentOrdersTable() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="font-serif text-xl">Recent Orders</h3>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+          <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground/60 font-medium mb-0.5">Recent</p>
+          <h3 className="font-serif text-xl">Orders</h3>
+        </div>
         <Input
           placeholder="Search orders…"
           value={search}
@@ -177,7 +180,10 @@ export function RecentOrdersTable() {
               </TableHeader>
               <TableBody>
                 {result.orders.map((order: OrderRow) => (
-                  <TableRow key={order.id}>
+                  <TableRow
+                    key={order.id}
+                    className="hover:bg-muted/40 transition-colors"
+                  >
                     <TableCell className="font-mono text-xs">
                       {order.order_number ?? order.id.slice(0, 8)}
                     </TableCell>

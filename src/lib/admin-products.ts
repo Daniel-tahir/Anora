@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
+import { calculateSalePrice } from "./products";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export interface ProductManagementRow {
   category_id: string;
   subcategory_name?: string;
   thumbnail?: string | null;
+  sale_active?: boolean;
+  discount_percent?: number;
 }
 
 export interface AdminProductFull {
@@ -42,6 +45,8 @@ export interface AdminProductFull {
   is_active: boolean;
   status: string;
   category_id: string;
+  sale_active?: boolean;
+  discount_percent?: number;
   created_at: string;
   updated_at: string;
 }
@@ -178,32 +183,47 @@ export async function createProduct(data: {
   is_best_seller?: boolean;
   featured?: boolean;
   status?: string;
-}) {
+  sale_active?: boolean;
+  discount_percent?: number;
+}): Promise<string> {
   const isActive =
     (data.status ?? "draft") === "active" || (data.status ?? "draft") === "out_of_stock";
-  const { error } = await supabase.from("products").insert({
-    name: data.name,
-    slug: data.slug,
-    sku: data.sku,
-    price: data.price,
-    stock: data.stock,
-    category_id: data.category_id,
-    description: data.description ?? null,
-    short_description: data.short_description ?? null,
-    compare_price: data.compare_price ?? null,
-    low_stock_threshold: data.low_stock_threshold ?? 5,
-    sizes: data.sizes ?? [],
-    size_stock: data.size_stock ?? {},
-    colors: data.colors ?? [],
-    fabric: data.fabric ?? null,
-    material: data.material ?? null,
-    is_new: data.is_new ?? false,
-    is_best_seller: data.is_best_seller ?? false,
-    featured: data.featured ?? false,
-    status: data.status ?? "draft",
-    is_active: isActive,
-  });
+
+  const price = data.price;
+  const comparePrice = data.compare_price ?? null;
+
+  const { data: inserted, error } = await supabase
+    .from("products")
+    .insert({
+      name: data.name,
+      slug: data.slug,
+      sku: data.sku,
+      price,
+      compare_price: comparePrice,
+      stock: data.stock,
+      category_id: data.category_id,
+      description: data.description ?? null,
+      short_description: data.short_description ?? null,
+      low_stock_threshold: data.low_stock_threshold ?? 5,
+      sizes: data.sizes ?? [],
+      size_stock: data.size_stock ?? {},
+      colors: data.colors ?? [],
+      fabric: data.fabric ?? null,
+      material: data.material ?? null,
+      is_new: data.is_new ?? false,
+      is_best_seller: data.is_best_seller ?? false,
+      featured: data.featured ?? false,
+      status: data.status ?? "draft",
+      is_active: isActive,
+      sale_active: data.sale_active ?? false,
+      discount_percent: data.discount_percent ?? 0,
+    })
+    .select("id")
+    .single();
+
   if (error) throw error;
+  if (!inserted) throw new Error("Failed to create product");
+  return inserted.id;
 }
 
 export async function updateProduct(
@@ -228,29 +248,42 @@ export async function updateProduct(
     is_best_seller?: boolean;
     featured?: boolean;
     status?: string;
+    sale_active?: boolean;
+    discount_percent?: number;
   },
 ) {
+  const price = data.price;
+  const comparePrice = data.compare_price ?? null;
+
   const updateData: Record<string, unknown> = {
     name: data.name,
     slug: data.slug,
     sku: data.sku,
-    price: data.price,
-    stock: data.stock,
+    price,
+    compare_price: comparePrice,
     category_id: data.category_id,
     description: data.description ?? null,
     short_description: data.short_description ?? null,
-    compare_price: data.compare_price ?? null,
     low_stock_threshold: data.low_stock_threshold ?? 5,
     sizes: data.sizes ?? [],
-    size_stock: data.size_stock ?? {},
     colors: data.colors ?? [],
     fabric: data.fabric ?? null,
     material: data.material ?? null,
     is_new: data.is_new ?? false,
     is_best_seller: data.is_best_seller ?? false,
     featured: data.featured ?? false,
+    sale_active: data.sale_active ?? false,
+    discount_percent: data.discount_percent ?? 0,
     updated_at: new Date().toISOString(),
   };
+
+  if (data.stock !== undefined) {
+    updateData.stock = data.stock;
+  }
+  if (data.size_stock !== undefined) {
+    updateData.size_stock = data.size_stock;
+  }
+
   if (data.status !== undefined) {
     updateData.status = data.status;
     updateData.is_active = data.status === "active" || data.status === "out_of_stock";
@@ -310,35 +343,40 @@ export async function getAllActiveCategories(): Promise<
 export async function uploadProductImage(
   productId: string,
   file: File,
+  variantId?: string,
   onProgress?: (pct: number) => void,
 ): Promise<{ image_url: string; id: string }> {
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const filePath = `products/${productId}/${crypto.randomUUID()}.${ext}`;
+  const formData = new FormData();
+  formData.append("productId", productId);
+  if (variantId) {
+    formData.append("variantId", variantId);
+  }
+  formData.append("file", file);
 
-  const { error: uploadError } = await supabase.storage
-    .from("product-images")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (uploadError) throw uploadError;
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
 
-  const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(filePath);
+  const res = await fetch("/api/admin/products/upload", {
+    method: "POST",
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: formData,
+  });
 
-  const imageUrl = urlData?.publicUrl ?? "";
-  if (!imageUrl) throw new Error("Failed to get public URL");
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "Upload failed");
+    let message = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      message = parsed.statusMessage || parsed.message || errorText;
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
 
-  const { data, error: insertError } = await supabase
-    .from("product_images")
-    .insert({
-      product_id: productId,
-      image_url: imageUrl,
-      sort_order: 0,
-    })
-    .select("id, image_url")
-    .single();
-
-  if (insertError) throw insertError;
+  const data = await res.json();
   return { image_url: data.image_url, id: data.id };
 }
 

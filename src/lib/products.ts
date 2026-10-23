@@ -11,13 +11,16 @@ import blog3 from "@/assets/blog3.jpg";
 export type Category = "clothing" | "jewellery";
 
 export interface ColorVariant {
+  id?: string;
   color: string;
+  color_hex?: string;
   images: string[];
   sizes?: string[];
   sizeStock?: Record<string, number>;
   stock: number;
   sku?: string;
   priceOverride?: number;
+  comparePriceOverride?: number;
   attributes?: Record<string, unknown>;
 }
 
@@ -26,6 +29,7 @@ export interface Product {
   slug: string;
   name: string;
   price: number;
+  compare_price?: number | null;
   category: Category;
   subcategory: string;
   description: string;
@@ -39,7 +43,89 @@ export interface Product {
   images: string[];
   badge?: string;
   colorVariants?: ColorVariant[];
+  sale_active?: boolean;
+  discount_percent?: number;
   metadata?: Record<string, unknown>;
+  selectedVariantId?: string;
+  category_id?: string;
+  category_slug?: string;
+  short_description?: string | null;
+  featured?: boolean;
+  is_new?: boolean;
+  is_best_seller?: boolean;
+  popularity_score?: number;
+  created_at?: string;
+}
+
+export interface ProductPriceInfo {
+  isOnSale: boolean;
+  originalPrice: number;
+  salePrice: number;
+  discountPercent: number;
+  badgeText: string;
+}
+
+export function calculateSalePrice(originalPrice: number, discountPercent: number): number {
+  if (discountPercent <= 0) return originalPrice;
+  return originalPrice * (1 - discountPercent / 100);
+}
+
+export function getProductPriceInfo(product: {
+  price: number;
+  compare_price?: number | null;
+  sale_active?: boolean;
+  discount_percent?: number;
+  colorVariants?: ColorVariant[];
+  selectedVariantId?: string;
+}, selectedColor?: string): ProductPriceInfo {
+  // Find variant if selected
+  const variant = selectedColor ? product.colorVariants?.find((v) => v.color.toLowerCase() === selectedColor.toLowerCase()) : undefined;
+
+  // Determine base price (price) and compare price (comparePrice)
+  const price = variant?.priceOverride !== undefined ? variant.priceOverride : product.price;
+  const comparePrice = variant?.comparePriceOverride !== undefined ? variant.comparePriceOverride : (product.compare_price ?? null);
+
+  // Check if Sale is active (takes priority)
+  const isSaleActive = product.sale_active && product.discount_percent !== undefined && product.discount_percent > 0;
+
+  if (isSaleActive) {
+    const discountPercent = product.discount_percent!;
+    const originalPrice = Number(price);
+    const salePrice = originalPrice - (originalPrice * discountPercent / 100);
+
+    return {
+      isOnSale: true,
+      originalPrice,
+      salePrice,
+      discountPercent,
+      badgeText: `-${discountPercent}%`,
+    };
+  }
+
+  // Otherwise check legacy compare at logic
+  if (comparePrice !== null && Number(comparePrice) > Number(price)) {
+    const originalPrice = Number(comparePrice);
+    const salePrice = Number(price);
+    const discountPercent = Math.round(((originalPrice - salePrice) / originalPrice) * 100);
+
+    return {
+      isOnSale: true,
+      originalPrice,
+      salePrice,
+      discountPercent,
+      badgeText: `-${discountPercent}%`,
+    };
+  }
+
+  // Otherwise not on sale
+  const salePrice = Number(price);
+  return {
+    isOnSale: false,
+    originalPrice: salePrice,
+    salePrice,
+    discountPercent: 0,
+    badgeText: "",
+  };
 }
 
 export const subcategories: Record<Category, string[]> = {
@@ -257,3 +343,47 @@ export const faqs = [
     a: "Store each piece separately in the pouch provided. Avoid contact with perfumes, lotions and chlorine. A soft polishing cloth restores shine in moments.",
   },
 ];
+
+export function sortProducts(products: Product[], sortOption?: string): Product[] {
+  const items = [...products];
+  if (!sortOption) return items;
+
+  switch (sortOption) {
+    case "featured":
+      return items.sort((a, b) => {
+        const featA = a.featured ? 1 : 0;
+        const featB = b.featured ? 1 : 0;
+        if (featA !== featB) {
+          return featB - featA; // Featured first
+        }
+        const popA = a.popularity_score ?? 0;
+        const popB = b.popularity_score ?? 0;
+        return popB - popA; // Sub-sort by popularity score
+      });
+    case "newest":
+      return items.sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA; // Newest first
+      });
+    case "price-asc":
+      return items.sort((a, b) => {
+        const priceA = getProductPriceInfo(a).salePrice;
+        const priceB = getProductPriceInfo(b).salePrice;
+        return priceA - priceB;
+      });
+    case "price-desc":
+      return items.sort((a, b) => {
+        const priceA = getProductPriceInfo(a).salePrice;
+        const priceB = getProductPriceInfo(b).salePrice;
+        return priceB - priceA;
+      });
+    case "name-asc":
+      return items.sort((a, b) => a.name.localeCompare(b.name));
+    case "name-desc":
+      return items.sort((a, b) => b.name.localeCompare(a.name));
+    default:
+      return items;
+  }
+}
+

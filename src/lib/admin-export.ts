@@ -1,6 +1,4 @@
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -31,20 +29,23 @@ export function exportCSV(data: Record<string, any>[], filename: string) {
   downloadBlob(blob, `${filename}.csv`);
 }
 
-export function exportExcel(data: Record<string, any>[], filename: string, sheetName = "Sheet1") {
+export async function exportExcel(data: Record<string, any>[], filename: string, sheetName = "Sheet1") {
   if (!data.length) return;
+  const XLSX = await import("xlsx");
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
-export function exportPDF(
+export async function exportPDF(
   title: string,
   headers: string[],
   rows: (string | number)[][],
   filename: string,
 ) {
+  const { default: jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF();
   doc.setFontSize(16);
   doc.text(title, 14, 20);
@@ -70,7 +71,7 @@ export function exportPDF(
   doc.save(`${filename}.pdf`);
 }
 
-export function generateInvoicePDF(data: {
+export async function generateInvoicePDF(data: {
   invoiceNumber: string;
   orderNumber: string | null;
   customerName: string;
@@ -83,6 +84,8 @@ export function generateInvoicePDF(data: {
   shippingAmount: number;
   totalAmount: number;
 }) {
+  const { default: jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 

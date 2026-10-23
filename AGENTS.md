@@ -156,3 +156,78 @@ No singleton initializes during module import. All dependencies are injected thr
 - `npm run build` — passes cleanly (client + SSR)
 - `npx eslint .` — only pre-existing warnings in untouched files (no errors in refactored code)
 - No runtime warnings, no temporary patches, no compatibility hacks
+
+## Recent Work — Account Page Cancel/Refund (Phase 1 & 2)
+- **Customer cancel order**: `CancelOrderDialog` component added to `account.tsx:457` — dropdown reasons (Changed my mind, Ordered by mistake, Found another product, Other), calls `cancelOrder` RPC with `cancelled_by='customer'`. Only visible for `pending`, `confirmed`, `processing` orders.
+- **Customer refund request**: `RequestRefundDialog` component added to `account.tsx:549` — dropdown reasons (Damaged Product, Wrong Product, Quality Issue, Late Delivery, Other), optional description, calls `requestRefund` RPC. Only visible for `delivered` orders with no pending/approved refund.
+- **Cancellation info display**: Red-tinted section in `OrderDetailView` showing cancelled by, time, and reason (when `cancelled_by` is set).
+- **Refund status display**: Shows refund status (pending/approved/completed/rejected), amount, reason, processed date in `OrderDetailView` when `refunds` exist.
+- **Status history timeline**: `order_status_history` table entries shown below the existing `order_timeline` — displays `from_status → to_status` with note.
+- **Order query updated**: `handleViewOrder` now selects `cancelled_by`, `cancelled_at`, `cancellation_reason`, `order_status_history`, and `refunds` via Supabase join.
+- **Cancelled status badge**: Added `cancelled` → red styling to the status badge in `OrderDetailView`.
+- **ORDER_STATUSES list updated** in `admin.orders.tsx` to include `packed` and `out_for_delivery`.
+- **Build**: passes cleanly.
+
+## Recent Work — Production-Grade Payment System (Phase 3)
+
+### Stripe Performance Improvements
+- **Single PaymentIntent creation**: PI created once on submit (not prefetched) — eliminates double PI creation. Idempotency key (`checkoutRequestId`) prevents duplicate PIs from form resubmission.
+- **Module-level Stripe promise cache**: `stripePromiseCache` singleton in `useStripeCheckout.ts` — never recreates Stripe SDK instance.
+- **`StripeElementsForm` + `StripePaymentForm`**: `React.memo`-compatible components in `useStripeCheckout.tsx`. Error retry button. Single `createPaymentIntent` call.
+- **`CheckoutSkeleton`** (`src/payments/CheckoutSkeleton.tsx`): Animated pulse skeleton matching checkout form layout — shown while Stripe loads.
+
+### PayPal — Real SDK Integration
+- **`@paypal/react-paypal-js`** (`src/components/payment/PayPalPayment.tsx`): `PayPalScriptProvider` + `PayPalButtons`. Supports PayPal, Credit/Debit, Venmo, Pay Later via `enable-funding`. Server-side `createOrder` + capture & order creation in `onApprove` callback.
+- **`usePayPalCheckout` hook** (`src/payments/hooks/usePayPalCheckout.ts`): Wraps `createOrder` and `captureOrder` server functions.
+- **Server-side capture** (`server/lib/payments.ts`): `capturePayPalOrder` called from server — more secure than client-side capture. Cart re-validated via `validateCartItems` to prevent price manipulation.
+- **`create_order_from_payment` RPC** reused for both Stripe and PayPal — `p_stripe_payment_intent_id` stores `paypal_{orderId}` for PayPal orders.
+- **Sandbox/production support** (`server/config/env.ts`): `PAYPAL_ENVIRONMENT` controls API base URL. `paypalClientId` falls back to `VITE_PAYPAL_CLIENT_ID`.
+
+### Checkout Page Rewrite
+- **Removed all `[TRACE]` debug console.logs** from `src/routes/checkout.tsx`.
+- **Single `submitLock` ref** prevents duplicate submissions.
+- **`orderAttempted` ref** prevents duplicate order creation after 3DS redirect.
+- **Uses `cart.items` directly** instead of duplicating state.
+
+### PayPal Webhook (`server/routes/api/paypal/webhook.post.ts`)
+- **Tombstone idempotency** via `webhook_events` table (same pattern as Stripe webhook).
+- **Signature verification** via PayPal's `/v1/notifications/verify-webhook-signature` API.
+- **Handles `PAYMENT.CAPTURE.COMPLETED`** — logs + finalizes event (full order creation from webhook is 501/TODO).
+- **Graceful degradation**: if `PAYPAL_WEBHOOK_ID` not configured, skips verification (logs warning) rather than rejecting.
+
+### Database
+- **Migration 049** (`supabase/migrations/049_add_paypal_order_id.sql`): Adds `paypal_order_id TEXT` column to `orders` table with index. This was missing and caused silent failures in `createOrderFromPayPal` in `order-lifecycle.ts:623,698`.
+
+### Env Vars
+```
+# Required for Stripe
+VITE_STRIPE_PUBLISHABLE_KEY=...
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+
+# Required for PayPal
+VITE_PAYPAL_CLIENT_ID=...     # Client-side ID
+PAYPAL_CLIENT_ID=...           # Server-side ID (same as VITE_ one typically)
+PAYPAL_SECRET=...
+PAYPAL_ENVIRONMENT=sandbox    # or "production"
+PAYPAL_WEBHOOK_ID=...         # Optional — registered in PayPal Developer Dashboard
+
+# General
+PUBLIC_APP_URL=http://localhost:3000
+```
+
+### PayPal Sandbox Testing Checklist
+1. Create sandbox accounts at https://developer.paypal.com/dashboard/accounts
+2. Set `PAYPAL_ENVIRONMENT=sandbox` in `.env`
+3. Run the app, proceed to checkout, select PayPal
+4. Log in with sandbox buyer account, approve payment
+5. Verify order created in Supabase `orders` table
+6. Check `paypal_order_id` column populated on the order
+7. Test Venmo and Pay Later if available in sandbox
+8. Switch `PAYPAL_ENVIRONMENT=production` for live
+
+### Testing PayPal Webhook Locally
+1. Register webhook URL in PayPal Developer Dashboard → Webhooks (use ngrok for local dev)
+2. Copy the Webhook ID into `PAYPAL_WEBHOOK_ID` in `.env`
+3. Subscribe to `PAYMENT.CAPTURE.COMPLETED` and `CHECKOUT.ORDER.APPROVED` events
+4. Test by completing a PayPal payment in sandbox

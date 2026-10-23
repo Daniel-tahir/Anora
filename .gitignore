@@ -15,6 +15,8 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.vercel
+.vercel/output
 
 # Wrangler / Cloudflare
 .wrangler/
@@ -31,4 +33,8 @@ dist-ssr
 *.sln
 *.sw?
 
+
+# secrets - never commit
 .env
+.env.*
+!.env.example

@@ -1,11 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/config";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy — ANORA" },
+      { title: "Privacy Policy | ANORA New York" },
       { name: "description", content: "How ANORA collects, uses, and protects your information." },
+      { name: "robots", content: "index, follow" },
+      { property: "og:title", content: "Privacy Policy | ANORA New York" },
+      {
+        property: "og:description",
+        content: "How ANORA collects, uses, and protects your information.",
+      },
+      { property: "og:url", content: `${SITE_URL}/privacy` },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: `${SITE_URL}/logo.png` },
+      { property: "og:site_name", content: "ANORA" },
+      { property: "og:locale", content: "en_US" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Privacy Policy | ANORA New York" },
+      {
+        name: "twitter:description",
+        content: "How ANORA collects, uses, and protects your information.",
+      },
+      { name: "twitter:image", content: `${SITE_URL}/logo.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/privacy` }],
   }),
   component: Privacy,
 });

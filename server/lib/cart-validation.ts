@@ -22,6 +22,9 @@ export interface ValidatedLineItem {
   quantity: number;
   maxAvailable: number;
   subtotal: number;
+  imageUrl?: string;
+  color?: string;
+  variantName?: string;
 }
 
 export interface CartValidationResult {
@@ -52,14 +55,22 @@ interface DbProduct {
   is_active: boolean;
   status: string | null;
   updated_at: string;
+  sale_active?: boolean;
+  discount_percent?: number;
+  compare_price?: number | null;
 }
 
 interface DbVariant {
   id: string;
   product_id: string;
+  name: string;
   price: number | null;
+  compare_price: number | null;
   stock: number;
   is_active: boolean;
+  sizes: string[] | null;
+  size_stock: Record<string, number> | null;
+  color_hex: string | null;
 }
 
 function collectErrors(errors: InventoryError[]): { message: string; isStructural: boolean } {
@@ -105,11 +116,33 @@ export async function validateCartItems(input: CartItemInput[]): Promise<CartVal
 
   const { data: products, error: productError } = await supabaseAdmin
     .from("products")
-    .select("id, name, price, stock, size_stock, sizes, is_active, status, updated_at")
+    .select("id, name, price, stock, size_stock, sizes, is_active, status, updated_at, sale_active, discount_percent, compare_price")
     .in("id", productIds);
 
   if (productError) {
     return { ok: false, error: "Unable to validate cart", items: [], subtotal: 0, total: 0 };
+  }
+
+  const { data: images, error: imagesError } = await supabaseAdmin
+    .from("product_images")
+    .select("product_id, variant_id, image_url, sort_order")
+    .in("product_id", productIds)
+    .order("sort_order", { ascending: true });
+
+  const imageMap = new Map<string, string>();
+  const variantImageMap = new Map<string, string>();
+  if (!imagesError && images) {
+    for (const img of images) {
+      if (img.variant_id) {
+        if (!variantImageMap.has(img.variant_id)) {
+          variantImageMap.set(img.variant_id, img.image_url);
+        }
+      } else {
+        if (!imageMap.has(img.product_id)) {
+          imageMap.set(img.product_id, img.image_url);
+        }
+      }
+    }
   }
 
   if (!products || products.length !== productIds.length) {
@@ -135,16 +168,21 @@ export async function validateCartItems(input: CartItemInput[]): Promise<CartVal
   }
 
   const variantMap = new Map<string, DbVariant>();
-  if (variantIds.length > 0) {
-    const { data: variants, error: variantError } = await supabaseAdmin
-      .from("product_variants")
-      .select("id, product_id, price, stock, is_active")
-      .in("id", variantIds);
+  const productVariantsMap = new Map<string, DbVariant[]>();
 
-    if (!variantError && variants) {
-      for (const v of variants as DbVariant[]) {
-        variantMap.set(v.id, v);
-      }
+  const { data: allProductVariants, error: variantError } = await supabaseAdmin
+    .from("product_variants")
+    .select("id, product_id, name, price, compare_price, stock, is_active, sizes, size_stock, color_hex")
+    .in("product_id", productIds)
+    .eq("is_active", true);
+
+  if (!variantError && allProductVariants) {
+    for (const v of allProductVariants as DbVariant[]) {
+      variantMap.set(v.id, v);
+      
+      const list = productVariantsMap.get(v.product_id) ?? [];
+      list.push(v);
+      productVariantsMap.set(v.product_id, list);
     }
   }
 
@@ -167,41 +205,79 @@ export async function validateCartItems(input: CartItemInput[]): Promise<CartVal
 
     const size = item.size ?? "";
 
-    const sizeListError = validateSizeInList(size, product.sizes, product.name);
-    if (sizeListError) {
-      errors.push(sizeListError);
-      continue;
-    }
+    const activeVariants = productVariantsMap.get(item.productId) ?? [];
+    const hasActualColors = activeVariants.some(v => v.color_hex && v.name !== 'Default');
+    const requiresColorVariant = activeVariants.length > 0 && hasActualColors;
 
-    if (item.expectedUnitPrice != null) {
-      const priceError = validatePrice(Number(product.price), item.expectedUnitPrice);
-      if (priceError) {
-        errors.push(priceError);
-        continue;
-      }
-    }
-
-    if (item.variantId) {
-      const variant = variantMap.get(item.variantId) ?? null;
-      const variantError = validateVariant(
-        variant?.product_id === item.productId ? variant : null,
-        product.name,
-      );
-      if (variantError) {
-        errors.push(variantError);
+    if (requiresColorVariant) {
+      if (!item.variantId) {
+        errors.push({
+          code: "VARIANT_NOT_FOUND",
+          message: `Color variant selection is required for ${product.name}.`,
+        });
         continue;
       }
 
-      const unitPrice = variant!.price ?? product.price;
+      const variant = variantMap.get(item.variantId);
+      if (!variant || variant.product_id !== item.productId || !variant.is_active) {
+        errors.push({
+          code: "VARIANT_NOT_FOUND",
+          message: `Selected color variant is unavailable for ${product.name}.`,
+        });
+        continue;
+      }
+
+      const color = variant.name;
+      if (!color) {
+        errors.push({
+          code: "VARIANT_NOT_FOUND",
+          message: `Selected color is unavailable for ${product.name}.`,
+        });
+        continue;
+      }
+
+      const variantSizes = variant.sizes ?? product.sizes;
+      const actualSizesExist = variantSizes && variantSizes.length > 0 && !(variantSizes.length === 1 && variantSizes[0] === "OS");
+      if (actualSizesExist && !size) {
+        errors.push({
+          code: "SIZE_NOT_FOUND",
+          message: `Size selection is required for ${product.name}.`,
+        });
+        continue;
+      }
+
+      const sizeListError = validateSizeInList(size, variantSizes, product.name);
+      if (sizeListError) {
+        errors.push(sizeListError);
+        continue;
+      }
+
+      const basePrice = variant.price ?? product.price;
+      let unitPrice = Number(basePrice);
+      if (product.sale_active && product.discount_percent && product.discount_percent > 0) {
+        unitPrice = unitPrice * (1 - product.discount_percent / 100);
+      }
       if (item.expectedUnitPrice != null) {
-        const priceError = validatePrice(Number(unitPrice), item.expectedUnitPrice);
+        const priceError = validatePrice(unitPrice, item.expectedUnitPrice);
         if (priceError) {
           errors.push(priceError);
           continue;
         }
       }
 
-      const qtyError = validateQuantity(item.quantity, variant!.stock, product.name);
+      const effectiveSizeStock = variant.size_stock ?? product.size_stock;
+      const sizeStockError = validateSizeStock(size, effectiveSizeStock, product.name);
+      if (sizeStockError) {
+        errors.push(sizeStockError);
+        continue;
+      }
+
+      const { quantity: maxAvailable } = getAvailableStock(
+        { stock: variant.stock, size_stock: effectiveSizeStock },
+        size,
+      );
+
+      const qtyError = validateQuantity(item.quantity, maxAvailable, product.name);
       if (qtyError) {
         errors.push(qtyError);
         continue;
@@ -216,9 +292,106 @@ export async function validateCartItems(input: CartItemInput[]): Promise<CartVal
         productName: product.name,
         unitPrice: Number(unitPrice),
         quantity: item.quantity,
-        maxAvailable: variant!.stock,
+        maxAvailable,
         subtotal: lineSubtotal,
+        imageUrl: (item.variantId && variantImageMap.get(item.variantId)) || imageMap.get(item.productId),
+        color: color || undefined,
+        variantName: variant.name !== "Default" ? variant.name : undefined,
       });
+      continue;
+    }
+
+    // Fall through: No color variant is required for this product.
+    if (item.variantId) {
+      // If a variantId is passed, validate using the variant details
+      const variant = variantMap.get(item.variantId);
+      if (variant && variant.product_id === item.productId && variant.is_active) {
+        const variantSizes = variant.sizes ?? product.sizes;
+        const actualSizesExist = variantSizes && variantSizes.length > 0 && !(variantSizes.length === 1 && variantSizes[0] === "OS");
+        if (actualSizesExist && !size) {
+          errors.push({
+            code: "SIZE_NOT_FOUND",
+            message: `Size selection is required for ${product.name}.`,
+          });
+          continue;
+        }
+
+        const sizeListError = validateSizeInList(size, variantSizes, product.name);
+        if (sizeListError) {
+          errors.push(sizeListError);
+          continue;
+        }
+
+        const basePrice = variant.price ?? product.price;
+        let unitPrice = Number(basePrice);
+        if (product.sale_active && product.discount_percent && product.discount_percent > 0) {
+          unitPrice = unitPrice * (1 - product.discount_percent / 100);
+        }
+        if (item.expectedUnitPrice != null) {
+          const priceError = validatePrice(unitPrice, item.expectedUnitPrice);
+          if (priceError) {
+            errors.push(priceError);
+            continue;
+          }
+        }
+
+        const effectiveSizeStock = variant.size_stock ?? product.size_stock;
+        const sizeStockError = validateSizeStock(size, effectiveSizeStock, product.name);
+        if (sizeStockError) {
+          errors.push(sizeStockError);
+          continue;
+        }
+
+        const { quantity: maxAvailable } = getAvailableStock(
+          { stock: variant.stock, size_stock: effectiveSizeStock },
+          size,
+        );
+
+        const qtyError = validateQuantity(item.quantity, maxAvailable, product.name);
+        if (qtyError) {
+          errors.push(qtyError);
+          continue;
+        }
+
+        const lineSubtotal = Number(unitPrice) * item.quantity;
+        subtotal += lineSubtotal;
+        validated.push({
+          productId: item.productId,
+          variantId: item.variantId,
+          size,
+          productName: product.name,
+          unitPrice: Number(unitPrice),
+          quantity: item.quantity,
+          maxAvailable,
+          subtotal: lineSubtotal,
+          imageUrl: (item.variantId && variantImageMap.get(item.variantId)) || imageMap.get(item.productId),
+          color: variant.name !== "Default" ? variant.name : undefined,
+          variantName: variant.name !== "Default" ? variant.name : undefined,
+        });
+        continue;
+      } else {
+        errors.push({
+          code: "VARIANT_NOT_FOUND",
+          message: `Product ${product.name} does not have active variants.`,
+        });
+        continue;
+      }
+    }
+
+    // No variantId passed, and color variant is not required. Validate using product base details:
+    const productSizes = product.sizes;
+    const actualSizesExist = productSizes && productSizes.length > 0 && !(productSizes.length === 1 && productSizes[0] === "OS");
+    if (actualSizesExist && !size) {
+      errors.push({
+        code: "SIZE_NOT_FOUND",
+        message: `Size selection is required for ${product.name}.`,
+      });
+      continue;
+    }
+
+    const sizeListError = validateSizeInList(size, productSizes, product.name);
+    if (sizeListError) {
+      errors.push(sizeListError);
       continue;
     }
 
@@ -236,17 +409,34 @@ export async function validateCartItems(input: CartItemInput[]): Promise<CartVal
       continue;
     }
 
-    const lineSubtotal = Number(product.price) * item.quantity;
+    let unitPrice = Number(product.price);
+    if (product.sale_active && product.compare_price && Number(product.compare_price) > Number(product.price)) {
+      unitPrice = Number(product.compare_price);
+    }
+    if (product.sale_active && product.discount_percent && product.discount_percent > 0) {
+      unitPrice = unitPrice * (1 - product.discount_percent / 100);
+    }
+
+    if (item.expectedUnitPrice != null) {
+      const priceError = validatePrice(unitPrice, item.expectedUnitPrice);
+      if (priceError) {
+        errors.push(priceError);
+        continue;
+      }
+    }
+
+    const lineSubtotal = unitPrice * item.quantity;
     subtotal += lineSubtotal;
     validated.push({
       productId: item.productId,
       variantId: null,
       size,
       productName: product.name,
-      unitPrice: Number(product.price),
+      unitPrice: Number(unitPrice),
       quantity: item.quantity,
       maxAvailable,
       subtotal: lineSubtotal,
+      imageUrl: imageMap.get(item.productId),
     });
   }
 

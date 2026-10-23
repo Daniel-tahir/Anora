@@ -2,8 +2,11 @@ import { Link } from "@tanstack/react-router";
 import { Instagram, Facebook, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { BRAND_NAME } from "@/lib/brand";
+import { useSiteSettings, DEFAULT_SITE_SETTINGS } from "@/lib/site-settings";
 
 export function Footer() {
+  const { data: settings } = useSiteSettings();
   const [email, setEmail] = useState("");
   return (
     <footer className="border-t border-border/60 bg-background mt-24">
@@ -11,9 +14,16 @@ export function Footer() {
         <div className="space-y-6">
           <Link
             to="/"
-            className="font-serif text-3xl tracking-[0.3em] text-foreground hover:text-gold transition-colors duration-300 inline-block"
+            className="hover:opacity-85 transition-opacity inline-block"
           >
-            ANORA
+            <div className="flex flex-col items-start gap-1.5">
+              <span className="font-brand text-3xl tracking-[0.3em] text-foreground hover:text-gold transition-colors duration-300 leading-none">
+                {BRAND_NAME}
+              </span>
+              <span className="text-[10px] tracking-[0.32em] uppercase text-muted-foreground select-none font-sans font-medium">
+                NEW YORK
+              </span>
+            </div>
           </Link>
           <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
             Luxury clothing and jewellery, crafted with timeless elegance from our atelier to your
@@ -21,7 +31,7 @@ export function Footer() {
           </p>
           <div className="flex gap-3 text-muted-foreground">
             <a
-              href="https://instagram.com/anora_ny"
+              href={settings?.instagram_url || DEFAULT_SITE_SETTINGS.instagram_url || "https://instagram.com/anora_ny"}
               target="_blank"
               rel="noreferrer"
               aria-label="Instagram"
@@ -30,23 +40,16 @@ export function Footer() {
               <Instagram className="h-4 w-4" />
             </a>
             <a
-              href="#"
+              href={settings?.facebook_url || DEFAULT_SITE_SETTINGS.facebook_url || "#"}
+              target="_blank"
+              rel="noreferrer"
               aria-label="Facebook"
               className="hover:text-gold transition-all duration-300 hover:scale-105"
             >
               <Facebook className="h-4 w-4" />
             </a>
             <a
-              href="#"
-              aria-label="Pinterest"
-              className="hover:text-gold transition-all duration-300 hover:scale-105"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                <path d="M12 2C6.48 2 2 6.48 2 12c0 4.09 2.45 7.6 5.96 9.14-.08-.78-.16-1.97.03-2.82.18-.77 1.17-4.92 1.17-4.92s-.3-.6-.3-1.48c0-1.39.81-2.43 1.81-2.43.85 0 1.27.64 1.27 1.41 0 .86-.55 2.14-.83 3.33-.24 1 .5 1.81 1.48 1.81 1.78 0 3.15-1.88 3.15-4.59 0-2.4-1.72-4.08-4.18-4.08-2.85 0-4.52 2.13-4.52 4.34 0 .86.33 1.78.74 2.28.08.1.09.18.07.28-.07.31-.24 1-.27 1.13-.04.18-.14.22-.33.13-1.21-.56-1.96-2.33-1.96-3.74 0-3.05 2.21-5.85 6.39-5.85 3.35 0 5.96 2.39 5.96 5.59 0 3.34-2.1 6.02-5.02 6.02-.98 0-1.9-.51-2.21-1.11l-.6 2.28c-.22.85-.81 1.91-1.21 2.56.91.28 1.87.43 2.88.43 5.52 0 10-4.48 10-10S17.52 2 12 2z" />
-              </svg>
-            </a>
-            <a
-              href="https://wa.me/13473256525?text=Hello%20ANORA"
+              href={settings?.whatsapp_url || DEFAULT_SITE_SETTINGS.whatsapp_url || "https://wa.me/13473256525?text=Hello%20ANORA"}
               target="_blank"
               rel="noreferrer"
               aria-label="WhatsApp"
@@ -70,6 +73,7 @@ export function Footer() {
           <FLink to="/privacy">Privacy Policy</FLink>
           <FLink to="/terms">Terms & Conditions</FLink>
           <FLink to="/contact">Contact Us</FLink>
+          <FLink to="/blogs">Blogs</FLink>
         </FooterCol>
 
         <div>
@@ -86,8 +90,14 @@ export function Footer() {
             }}
             className="flex border-b border-foreground/30 focus-within:border-gold transition-colors duration-300"
           >
+            <label htmlFor="footer-newsletter-email" className="sr-only">
+              Email address
+            </label>
             <input
+              id="footer-newsletter-email"
+              name="email"
               type="email"
+              autoComplete="email"
               required
               placeholder="Your email"
               value={email}
@@ -106,7 +116,7 @@ export function Footer() {
 
       <div className="border-t border-border/60">
         <div className="mx-auto max-w-7xl px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground/70 tracking-wide">
-          <span>© ANORA. All Rights Reserved.</span>
+          <span>© {BRAND_NAME}. All Rights Reserved.</span>
           <span>Elegance Crafted For Every Moment</span>
         </div>
       </div>

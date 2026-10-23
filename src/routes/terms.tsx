@@ -1,14 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/config";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms & Conditions — ANORA" },
+      { title: "Terms & Conditions | ANORA New York" },
       {
         name: "description",
         content: "Terms governing the use of the ANORA website and services.",
       },
+      { name: "robots", content: "index, follow" },
+      { property: "og:title", content: "Terms & Conditions | ANORA New York" },
+      {
+        property: "og:description",
+        content: "Terms governing the use of the ANORA website and services.",
+      },
+      { property: "og:url", content: `${SITE_URL}/terms` },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: `${SITE_URL}/logo.png` },
+      { property: "og:site_name", content: "ANORA" },
+      { property: "og:locale", content: "en_US" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Terms & Conditions | ANORA New York" },
+      {
+        name: "twitter:description",
+        content: "Terms governing the use of the ANORA website and services.",
+      },
+      { name: "twitter:image", content: `${SITE_URL}/logo.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/terms` }],
   }),
   component: Terms,
 });

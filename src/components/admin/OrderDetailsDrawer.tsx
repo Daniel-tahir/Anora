@@ -23,9 +23,12 @@ import {
   updateOrderStatus,
   processReturn,
   processRefund,
+  cancelOrder,
+  addInternalNote,
   type OrderDetails,
 } from "@/lib/admin-orders";
 import { X, Check, AlertTriangle } from "lucide-react";
+import { formatAddress } from "@/lib/payments";
 
 interface Props {
   orderId: string | null;
@@ -38,7 +41,9 @@ const STATUS_BADGES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   confirmed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   processing: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  packed: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
   shipped: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  out_for_delivery: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
   delivered: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
   returned: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
@@ -87,8 +92,10 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   pending: ["confirmed", "cancelled"],
   confirmed: ["processing", "cancelled"],
-  processing: ["shipped", "cancelled"],
-  shipped: ["delivered"],
+  processing: ["packed", "cancelled"],
+  packed: ["shipped", "cancelled"],
+  shipped: ["out_for_delivery"],
+  out_for_delivery: ["delivered"],
   delivered: ["returned"],
   cancelled: ["refunded"],
   returned: ["refunded"],
@@ -172,6 +179,217 @@ function StatusManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function AdminCancelDialog({
+  orderId,
+  currentStatus,
+  onUpdated,
+}: {
+  orderId: string;
+  currentStatus: string;
+  onUpdated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [customReason, setCustomReason] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const adminReasons = [
+    "Customer Requested",
+    "Out of Stock",
+    "Payment Failed",
+    "Fraud Detected",
+    "Other",
+  ];
+
+  const canCancel = ["pending", "confirmed", "processing", "packed"].includes(currentStatus);
+
+  if (!canCancel) return null;
+
+  async function handleConfirm() {
+    const finalReason = reason === "Other" ? customReason : reason;
+    if (!finalReason) return;
+    setUpdating(true);
+    setError(null);
+    try {
+      const result = await cancelOrder(orderId, finalReason, "admin");
+      if (!result.success) {
+        setError(result.error ?? "Failed to cancel order");
+        return;
+      }
+      onUpdated();
+      setOpen(false);
+      setReason("");
+      setCustomReason("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(true)}
+        className="px-3 py-1.5 text-[11px] tracking-[0.2em] uppercase rounded border border-red/30 text-red/70 hover:border-red/60 hover:text-red transition-colors"
+      >
+        Cancel Order
+      </button>
+      {error && <p className="text-xs text-red/80 mt-2">{error}</p>}
+
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel the order. Select a reason.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select a reason…</option>
+              {adminReasons.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            {reason === "Other" && (
+              <textarea
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                placeholder="Describe the reason…"
+                rows={2}
+                className="w-full bg-background border border-border px-3 py-2 text-sm outline-none focus:border-foreground transition-colors resize-none"
+              />
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating}>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirm}
+              disabled={updating || !reason || (reason === "Other" && !customReason)}
+              className="bg-red/80 hover:bg-red"
+            >
+              {updating ? "Cancelling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function InternalNotesSection({
+  orderId,
+  internalNotes,
+  onUpdated,
+}: {
+  orderId: string;
+  internalNotes: string | null;
+  onUpdated: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAdd() {
+    if (!note.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await addInternalNote(orderId, note.trim());
+      if (!result.success) {
+        setError(result.error ?? "Failed to add note");
+        return;
+      }
+      setNote("");
+      onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+        Internal Notes
+      </p>
+      <div className="border border-border/60 p-3">
+        {internalNotes ? (
+          <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed mb-3 max-h-40 overflow-y-auto">
+            {internalNotes}
+          </pre>
+        ) : (
+          <p className="text-xs text-muted-foreground mb-3">No internal notes.</p>
+        )}
+        <div className="flex gap-2">
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a note…"
+            className="flex-1 bg-background border border-border px-3 py-1.5 text-sm outline-none focus:border-foreground transition-colors"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={saving || !note.trim()}
+            className="px-3 py-1.5 text-[11px] tracking-[0.2em] uppercase rounded border border-border/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Add"}
+          </button>
+        </div>
+        {error && <p className="text-xs text-red/80 mt-2">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+function StatusHistorySection({ history }: { history: OrderDetails["status_history"] }) {
+  if (!history || history.length === 0) return null;
+
+  return (
+    <div>
+      <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+        Status History
+      </p>
+      <div className="border border-border/60 p-4 space-y-3">
+        {history.map((entry) => (
+          <div key={entry.id} className="flex gap-3 text-sm">
+            <div className="w-2 h-2 rounded-full bg-gold mt-1.5 shrink-0" />
+            <div>
+              <p>
+                <span className="font-medium capitalize">{entry.new_status}</span>
+                {entry.previous_status && (
+                  <span className="text-muted-foreground">
+                    {" "}(was {entry.previous_status})
+                  </span>
+                )}
+              </p>
+              {entry.note && (
+                <p className="text-xs text-muted-foreground mt-0.5">{entry.note}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {new Date(entry.created_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -341,6 +559,10 @@ function OrderDetailsContent({
     <div className="space-y-8 pb-8">
       <StatusManager currentStatus={details.status} orderId={details.id} onUpdated={onUpdated} />
 
+      {details.status !== "cancelled" && (
+        <AdminCancelDialog currentStatus={details.status} orderId={details.id} onUpdated={onUpdated} />
+      )}
+
       <div>
         <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
           Order Information
@@ -383,26 +605,10 @@ function OrderDetailsContent({
       {details.shipping_address && (
         <div>
           <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
-            Shipping
+            Shipping Address
           </p>
-          <div className="border border-border/60 p-4 space-y-1 text-sm">
-            <DetailRow
-              label="Address"
-              value={
-                [details.shipping_address.line1, details.shipping_address.line2]
-                  .filter(Boolean)
-                  .join(", ") || "—"
-              }
-            />
-            <DetailRow label="City" value={details.shipping_address.city ?? "—"} />
-            <DetailRow label="State" value={details.shipping_address.state ?? "—"} />
-            <DetailRow
-              label="Postal Code"
-              value={
-                details.shipping_address.postalCode ?? details.shipping_address.postal_code ?? "—"
-              }
-            />
-            <DetailRow label="Country" value={details.shipping_address.country ?? "—"} />
+          <div className="border border-border/60 p-4 text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+            {formatAddress(details.shipping_address)}
           </div>
         </div>
       )}
@@ -469,6 +675,27 @@ function OrderDetailsContent({
           </div>
         </div>
       </div>
+
+      {details.cancelled_by && (
+        <div>
+          <p className="text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-3">
+            Cancellation
+          </p>
+          <div className="border border-red/20 bg-red/5 p-4 space-y-1 text-sm">
+            <DetailRow label="Cancelled by" value={details.cancelled_by === "customer" ? "Customer" : "Staff"} />
+            {details.cancelled_at && <DetailRow label="Date" value={formatDate(details.cancelled_at)} />}
+            {details.cancellation_reason && <DetailRow label="Reason" value={details.cancellation_reason} />}
+          </div>
+        </div>
+      )}
+
+      <StatusHistorySection history={details.status_history} />
+
+      <InternalNotesSection
+        orderId={details.id}
+        internalNotes={details.internal_notes}
+        onUpdated={onUpdated}
+      />
 
       <ReturnManager details={details} onUpdated={onUpdated} />
       <RefundManager details={details} onUpdated={onUpdated} />

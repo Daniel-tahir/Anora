@@ -6,21 +6,26 @@ interface DashboardCardProps {
   value?: string | number;
   icon?: ReactNode;
   loading?: boolean;
+  accent?: string;
 }
 
-export function DashboardCard({ label, value, icon, loading }: DashboardCardProps) {
+export function DashboardCard({ label, value, icon, loading, accent }: DashboardCardProps) {
   return (
-    <div className="border border-border/60 p-4 sm:p-6 space-y-2 sm:space-y-3 transition-colors duration-300 hover:border-foreground/20 min-w-0 overflow-hidden">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[10px] sm:text-[11px] tracking-[0.28em] sm:tracking-[0.32em] uppercase text-muted-foreground truncate">
+    <div className="group relative border border-border/50 bg-card p-5 sm:p-6 transition-all duration-200 hover:border-border hover:shadow-sm min-w-0 overflow-hidden">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground font-medium leading-tight">
           {label}
         </span>
-        {icon && <span className="shrink-0">{icon}</span>}
+        {icon && (
+          <span className="shrink-0 mt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+            {icon}
+          </span>
+        )}
       </div>
       {loading ? (
-        <Skeleton className="h-7 sm:h-8 w-20 sm:w-24" />
+        <Skeleton className="h-8 w-24" />
       ) : (
-        <p className="font-serif text-2xl sm:text-3xl tabular-nums tracking-tight">
+        <p className={`font-serif text-2xl sm:text-3xl tabular-nums tracking-tight leading-none ${accent ?? ""}`}>
           {value ?? "—"}
         </p>
       )}

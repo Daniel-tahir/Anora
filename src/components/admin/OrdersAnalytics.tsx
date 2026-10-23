@@ -6,8 +6,8 @@ import {
 } from "@/lib/admin-analytics";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell,
@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { memo } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#f59e0b",
@@ -45,7 +46,7 @@ const CATEGORY_COLORS = [
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
+    <div className="flex flex-col items-center justify-center py-12 text-center border border-border/40 bg-muted/20 rounded-lg">
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
@@ -53,8 +54,8 @@ function EmptyState({ message }: { message: string }) {
 
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="border border-red/20 bg-red/5 p-6 text-center">
-      <p className="text-sm text-red/80">{error}</p>
+    <div className="border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6 text-center rounded-lg">
+      <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
       <button
         onClick={onRetry}
         className="mt-3 text-[11px] tracking-[0.32em] uppercase text-muted-foreground hover:text-foreground transition-colors"
@@ -69,53 +70,81 @@ function ChartSkeleton() {
   return <Skeleton className="h-[260px] w-full rounded-lg" />;
 }
 
-function OrdersByStatusChartContent({ data }: { data: OrdersByStatusItem[] }) {
+const OrdersByStatusChartContent = memo(function OrdersByStatusChartContent({
+  data,
+}: {
+  data: OrdersByStatusItem[];
+}) {
   const isEmpty = data.length === 0 || data.every((d) => d.count === 0);
 
   if (isEmpty) return <EmptyState message="No orders found" />;
 
+  const chartData = data.map((d) => ({
+    ...d,
+    fill: STATUS_COLORS[d.status] || "#6b7280",
+  }));
+
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" horizontal={false} />
+      <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="2 4" className="stroke-border/30" vertical={false} />
         <XAxis
-          type="number"
-          tick={{ fontSize: 11 }}
-          className="text-muted-foreground"
+          dataKey="status"
+          tick={{ fontSize: 11, fill: "currentColor" }}
+          className="text-muted-foreground [&_.recharts-text]:capitalize"
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          type="category"
-          dataKey="status"
-          tick={{ fontSize: 11 }}
-          className="text-muted-foreground [&_.recharts-text]:capitalize"
+          tick={{ fontSize: 11, fill: "currentColor" }}
+          className="text-muted-foreground"
           tickLine={false}
           axisLine={false}
-          width={80}
+          width={36}
         />
         <Tooltip
           content={({ active, payload, label }) => {
             if (!active || !payload?.length) return null;
             return (
-              <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
-                <p className="capitalize font-medium mb-1">{label}</p>
-                <p className="tabular-nums">{Number(payload[0].value).toLocaleString()} orders</p>
+              <div className="rounded-lg border border-border/60 bg-background px-3.5 py-2.5 text-xs shadow-xl shadow-black/5">
+                <p className="capitalize font-medium text-foreground mb-1">{label}</p>
+                <p className="tabular-nums font-medium">
+                  {Number(payload[0].value).toLocaleString()} orders
+                </p>
               </div>
             );
           }}
         />
-        <Bar dataKey="count" radius={[0, 2, 2, 0]}>
-          {data.map((entry) => (
-            <Cell key={entry.status} fill={STATUS_COLORS[entry.status] || "#6b7280"} />
-          ))}
-        </Bar>
-      </BarChart>
+        <Line
+          type="monotone"
+          dataKey="count"
+          stroke="#6366f1"
+          strokeWidth={2}
+          dot={(props) => {
+            const { cx, cy, payload } = props;
+            return (
+              <circle
+                key={payload.status}
+                cx={cx}
+                cy={cy}
+                r={4}
+                fill={STATUS_COLORS[payload.status] || "#6366f1"}
+                stroke="none"
+              />
+            );
+          }}
+          activeDot={{ r: 6, strokeWidth: 0 }}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
-}
+});
 
-function OrdersByCategoryChartContent({ data }: { data: OrdersByCategoryItem[] }) {
+const OrdersByCategoryChartContent = memo(function OrdersByCategoryChartContent({
+  data,
+}: {
+  data: OrdersByCategoryItem[];
+}) {
   const isEmpty = data.length === 0 || data.every((d) => d.count === 0);
 
   if (isEmpty) return <EmptyState message="No category data available" />;
@@ -129,9 +158,10 @@ function OrdersByCategoryChartContent({ data }: { data: OrdersByCategoryItem[] }
           nameKey="category"
           cx="50%"
           cy="50%"
-          outerRadius={90}
-          innerRadius={50}
+          outerRadius={95}
+          innerRadius={52}
           paddingAngle={2}
+          strokeWidth={0}
         >
           {data.map((_, index) => (
             <Cell key={index} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
@@ -142,20 +172,24 @@ function OrdersByCategoryChartContent({ data }: { data: OrdersByCategoryItem[] }
             if (!active || !payload?.length) return null;
             const entry = payload[0];
             return (
-              <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
-                <p className="font-medium mb-1">{entry.name}</p>
-                <p className="tabular-nums">{Number(entry.value).toLocaleString()} orders</p>
+              <div className="rounded-lg border border-border/60 bg-background px-3.5 py-2.5 text-xs shadow-xl shadow-black/5">
+                <p className="font-medium text-foreground mb-1">{entry.name}</p>
+                <p className="tabular-nums font-medium">
+                  {Number(entry.value).toLocaleString()} orders
+                </p>
               </div>
             );
           }}
         />
         <Legend
-          formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
+          iconType="circle"
+          iconSize={8}
+          formatter={(value) => <span className="text-[11px] text-muted-foreground">{value}</span>}
         />
       </PieChart>
     </ResponsiveContainer>
   );
-}
+});
 
 export function OrdersAnalytics() {
   const {
@@ -174,14 +208,15 @@ export function OrdersAnalytics() {
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-8">
         <p className="eyebrow">Analytics</p>
-        <h2 className="font-serif text-2xl mt-1">Orders</h2>
+        <h2 className="font-serif text-2xl mt-1">Orders Breakdown</h2>
+        <p className="text-xs text-muted-foreground mt-1">Status distribution and category breakdown</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="border border-border/60 p-4 sm:p-6">
-          <p className="text-[10px] sm:text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="border border-border/50 bg-card p-5 sm:p-6">
+          <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground font-medium mb-5">
             By Status
           </p>
           {statusError && <ErrorState error={statusError} onRetry={statusRefetch} />}
@@ -191,8 +226,8 @@ export function OrdersAnalytics() {
           )}
         </div>
 
-        <div className="border border-border/60 p-4 sm:p-6">
-          <p className="text-[10px] sm:text-[11px] tracking-[0.32em] uppercase text-muted-foreground mb-4">
+        <div className="border border-border/50 bg-card p-5 sm:p-6">
+          <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground font-medium mb-5">
             By Category
           </p>
           {categoryError && <ErrorState error={categoryError} onRetry={categoryRefetch} />}

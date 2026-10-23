@@ -23,7 +23,7 @@ type EmailLog = {
 };
 
 export class EmailService {
-  private readonly resend: Resend;
+  private readonly resend!: Resend;
   private ready = false;
 
   constructor() {
@@ -49,7 +49,7 @@ export class EmailService {
 
   private async logSend(log: EmailLog): Promise<void> {
     try {
-      const { error } = await supabaseAdmin.from("email_logs").insert({
+      const { error } = await (supabaseAdmin.from("email_logs") as any).insert({
         order_id: log.order_id,
         email_type: log.email_type,
         recipient: log.recipient,
@@ -70,8 +70,8 @@ export class EmailService {
   private async checkDuplicate(orderId: string | undefined, emailType: string): Promise<boolean> {
     if (!orderId) return false;
 
-    const { count, error } = await supabaseAdmin
-      .from("email_logs")
+    const { count, error } = await (supabaseAdmin
+      .from("email_logs") as any)
       .select("id", { count: "exact", head: true })
       .eq("order_id", orderId)
       .eq("email_type", emailType)
@@ -156,12 +156,14 @@ export class EmailService {
     to: string,
     orderNumber: string,
     html: string,
+    pdfAttachment?: { filename: string; content: Buffer | Uint8Array },
     orderId?: string,
   ): Promise<void> {
     return this.sendWithLogging({
       to,
-      subject: `Order Confirmed — ${orderNumber}`,
+      subject: `Order Confirmed — Welcome to ANORA`,
       html,
+      attachments: pdfAttachment ? [pdfAttachment] : undefined,
       emailType: "thank_you",
       orderId,
     });
@@ -184,12 +186,94 @@ export class EmailService {
     });
   }
 
+  async sendRefundUpdate(
+    to: string,
+    data: {
+      customerName?: string;
+      orderNumber: string;
+      amount: number;
+      refundStatus: "processed" | "completed";
+      items: any[];
+    },
+    orderId?: string,
+  ): Promise<void> {
+    const { buildRefundUpdateHtml } = await import("../templates");
+    const html = buildRefundUpdateHtml({
+      customerName: data.customerName,
+      orderNumber: data.orderNumber,
+      amount: data.amount,
+      refundStatus: data.refundStatus,
+      items: data.items,
+    });
+
+    const statusLabel = data.refundStatus === "processed" ? "Approved" : "Completed";
+    const emailType = data.refundStatus === "processed" ? "refund_approved" : "refund_completed";
+
+    return this.sendWithLogging({
+      to,
+      subject: `Refund ${statusLabel} — Order #${data.orderNumber}`,
+      html,
+      emailType,
+      orderId,
+    });
+  }
+
+  async sendReturnUpdate(
+    to: string,
+    data: {
+      customerName?: string;
+      orderNumber: string;
+      returnStatus: "requested" | "approved" | "rejected";
+      reason?: string;
+      items: any[];
+    },
+    orderId?: string,
+  ): Promise<void> {
+    const { buildReturnUpdateHtml } = await import("../templates");
+    const html = buildReturnUpdateHtml({
+      customerName: data.customerName,
+      orderNumber: data.orderNumber,
+      returnStatus: data.returnStatus,
+      reason: data.reason,
+      items: data.items,
+    });
+
+    const statusLabel = data.returnStatus === "approved" ? "Approved" : data.returnStatus === "rejected" ? "Rejected" : "Requested";
+    const emailType = `return_${data.returnStatus}`;
+
+    return this.sendWithLogging({
+      to,
+      subject: `Return Request ${statusLabel} — Order #${data.orderNumber}`,
+      html,
+      emailType,
+      orderId,
+    });
+  }
+
   async sendAdminNotification(subject: string, html: string, orderId?: string): Promise<void> {
     return this.sendWithLogging({
       to: this.getAdminEmail(),
       subject,
       html,
       emailType: "admin_notification",
+      orderId,
+    });
+  }
+
+  async sendReviewRequest(
+    to: string,
+    customerName: string,
+    products: Array<{ name: string; imageUrl?: string; reviewUrl: string }>,
+    orderId: string,
+  ): Promise<void> {
+    const { buildReviewRequestHtml } = await import("../templates");
+    const html = buildReviewRequestHtml({ customerName, products });
+
+    return this.sendWithLogging({
+      to,
+      subject: `How was your purchase? — ANORA`,
+      html,
+      emailType: "review_request",
       orderId,
     });
   }

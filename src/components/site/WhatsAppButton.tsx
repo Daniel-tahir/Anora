@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useSiteSettings, DEFAULT_SITE_SETTINGS } from "@/lib/site-settings";
 
 const KEY = "anora.wa.hidden";
 
 export function WhatsAppButton() {
+  const { data: settings } = useSiteSettings();
   const [hidden, setHidden] = useState(true);
   useEffect(() => {
     setHidden(localStorage.getItem(KEY) === "1");
   }, []);
   if (hidden) return null;
   return (
-    <div className="fixed bottom-5 left-5 z-40 animate-fade-up">
+    <div className="fixed bottom-20 sm:bottom-5 left-5 z-40 animate-fade-up">
       <div className="relative">
         <a
-          href="https://wa.me/13473256525?text=Hello%20ANORA"
+          href={settings?.whatsapp_url || DEFAULT_SITE_SETTINGS.whatsapp_url || "https://wa.me/13473256525?text=Hello%20ANORA"}
           target="_blank"
           rel="noreferrer"
           aria-label="WhatsApp us"

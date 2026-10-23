@@ -29,6 +29,7 @@ export interface AvailabilityState {
   sizes: string[];
   sizeStock: Record<string, number>;
   colorVariants: Array<{
+    id?: string;
     color: string;
     sku: string;
     stock: number;
@@ -39,6 +40,7 @@ export interface AvailabilityState {
     sizeStock: Record<string, number>;
   }>;
   selectedVariant?: {
+    id?: string;
     color: string;
     sku: string;
     stock: number;
@@ -116,6 +118,7 @@ export function getProductAvailability(product: Product, color?: string): Availa
     const sizeTracked = isSizeTracked(normalizedSizeStock);
     const available = variantStock > 0 && (!sizeTracked || availableBySize);
     return {
+      id: variant.id,
       color: variant.color,
       sku: variant.sku ?? product.sku,
       stock: variantStock,
@@ -148,6 +151,7 @@ export function getProductAvailability(product: Product, color?: string): Availa
     colorVariants,
     selectedVariant: selectedVariant
       ? {
+          id: selectedVariant.id,
           color: selectedVariant.color,
           sku: selectedVariant.sku ?? product.sku,
           stock,
@@ -165,7 +169,14 @@ export function validateStockBeforeCheckout(
   product: Product,
   line: CheckoutLine,
 ): StockValidationResult {
-  const availability = getProductAvailability(product, line.color);
+  let color = line.color;
+  if (!color && line.variantId) {
+    const variant = product.colorVariants?.find((v) => v.id === line.variantId);
+    if (variant) {
+      color = variant.color;
+    }
+  }
+  const availability = getProductAvailability(product, color);
   const { quantity: availableQuantity, error: stockError } = getAvailableStock(
     { stock: availability.stock, size_stock: availability.sizeStock },
     line.size,

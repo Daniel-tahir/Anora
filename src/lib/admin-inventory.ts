@@ -9,6 +9,23 @@ export interface InventoryProductRow {
   is_active: boolean;
   updated_at: string;
   category_name: string;
+  sizes?: string[] | null;
+  size_stock?: Record<string, number> | null;
+  colors?: any[] | null;
+  images?: string[] | null;
+  variants?: Array<{
+    id: string;
+    product_id: string;
+    name: string;
+    sku: string | null;
+    price: number | null;
+    stock: number;
+    sizes: string[] | null;
+    size_stock: Record<string, number> | null;
+    color_hex: string | null;
+    is_active: boolean;
+    images?: string[] | null;
+  }> | null;
 }
 
 export interface InventoryProductsResponse {
@@ -62,6 +79,8 @@ async function rpc<T>(name: string, params?: Record<string, unknown>): Promise<T
   return data as T;
 }
 
+import { useQuery } from "@tanstack/react-query";
+
 export function useInventoryManagement(
   page: number,
   pageSize: number,
@@ -71,36 +90,97 @@ export function useInventoryManagement(
   stockStatus = "",
   categoryId = "",
 ) {
-  const [result, setResult] = useState<InventoryProductsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["admin-inventory", page, pageSize, search, sortBy, sortDir, stockStatus, categoryId],
+    queryFn: async () => {
+      let q = supabase
+        .from("products")
+        .select(`
+          id, name, sku, stock, is_active, updated_at, sizes, size_stock, colors,
+          categories (name),
+          product_images (image_url, sort_order, variant_id),
+          product_variants (id, product_id, name, sku, price, stock, sizes, size_stock, color_hex, is_active)
+        `, { count: "exact" });
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const params: Record<string, unknown> = {
-        p_page: page,
-        p_page_size: pageSize,
-        p_sort_by: sortBy,
-        p_sort_dir: sortDir,
+      if (search) {
+        q = q.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
+      }
+      if (categoryId) {
+        q = q.eq("category_id", categoryId);
+      }
+      if (stockStatus === "low") {
+        q = q.gt("stock", 0).lte("stock", 10);
+      } else if (stockStatus === "out") {
+        q = q.eq("stock", 0);
+      } else if (stockStatus === "overstock") {
+        q = q.gt("stock", 100);
+      }
+
+      if (sortBy === "stock") {
+        q = q.order("stock", { ascending: sortDir === "asc" });
+      } else if (sortBy === "updated_at") {
+        q = q.order("updated_at", { ascending: sortDir === "asc" });
+      } else {
+        q = q.order("name", { ascending: sortDir === "asc" });
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      q = q.range(from, to);
+
+      const { data, count, error } = await q;
+      if (error) throw error;
+
+      const productsMapped = (data || []).map((p: any) => {
+        const category_name = (p.categories as any)?.name || "Uncategorized";
+        const baseImages = (p.product_images || [])
+          .filter((img: any) => !img.variant_id)
+          .sort((a: any, b: any) => a.sort_order - b.sort_order)
+          .map((img: any) => img.image_url);
+
+        const variantsMapped = (p.product_variants || []).map((pv: any) => {
+          const varImages = (p.product_images || [])
+            .filter((img: any) => img.variant_id === pv.id)
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((img: any) => img.image_url);
+
+          return {
+            ...pv,
+            images: varImages.length > 0 ? varImages : baseImages,
+          };
+        });
+
+        return {
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          stock: p.stock,
+          is_active: p.is_active,
+          updated_at: p.updated_at,
+          sizes: p.sizes,
+          size_stock: p.size_stock,
+          colors: p.colors,
+          images: baseImages,
+          category_name,
+          variants: variantsMapped,
+        };
+      });
+
+      return {
+        products: productsMapped,
+        total: count || 0,
       };
-      if (search) params.p_search = search;
-      if (stockStatus) params.p_stock_status = stockStatus;
-      if (categoryId) params.p_category_id = categoryId;
-      const data = await rpc<InventoryProductsResponse>("get_inventory_management", params);
-      setResult(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, search, sortBy, sortDir, stockStatus, categoryId]);
+    },
+    staleTime: 0,
+    gcTime: 1000 * 60 * 5,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-  return { result, loading, error, refetch: load };
+  return {
+    result: query.data || null,
+    loading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+    refetch: query.refetch,
+  };
 }
 
 export function useInventorySummary() {

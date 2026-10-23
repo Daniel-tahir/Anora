@@ -1,12 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { mapResetPasswordError } from "@/lib/auth-errors";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/reset-password")({
-  head: () => ({ meta: [{ title: "Reset Password — ANORA" }] }),
+  head: () => ({
+    meta: [{ title: "Reset Password — ANORA" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: ResetPasswordPage,
 });
 
@@ -17,7 +20,22 @@ function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
+
+  const [isRecoveryLink, setIsRecoveryLink] = useState(() => {
+    return window.location.hash.includes("type=recovery");
+  });
+
+  useEffect(() => {
+    if (!isRecoveryLink) return;
+    if (user) {
+      setIsRecoveryLink(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsRecoveryLink(false), 5000);
+    return () => clearTimeout(timer);
+  }, [isRecoveryLink, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,20 +56,22 @@ function ResetPasswordPage() {
     setSubmitting(false);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(mapResetPasswordError(updateError));
       return;
     }
 
     toast.success("Password updated", {
-      description: "Sign in with your new password.",
+      description:
+        "Your password has been updated successfully. Redirecting you to the login page...",
     });
 
-    supabase.auth.signOut();
+    setRedirecting(true);
+    await supabase.auth.signOut();
     window.location.href =
       "/login?confirmed=Password reset successful. Sign in with your new password.";
   };
 
-  if (authLoading) {
+  if (authLoading || isRecoveryLink || redirecting) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="h-8 w-8 rounded-full border-2 border-foreground/20 border-t-foreground animate-spin" />

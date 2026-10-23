@@ -1,19 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useSiteSettings, DEFAULT_SITE_SETTINGS } from "@/lib/site-settings";
+import { SITE_URL } from "@/lib/config";
 
 export const Route = createFileRoute("/returns")({
   head: () => ({
     meta: [
-      { title: "Exchange & Returns — ANORA" },
+      { title: "Exchange & Returns | ANORA New York" },
       {
         name: "description",
         content: "ANORA's exchange and return policy — 14-day returns on unworn pieces.",
       },
+      { name: "robots", content: "index, follow" },
+      { property: "og:title", content: "Exchange & Returns | ANORA New York" },
+      {
+        property: "og:description",
+        content: "ANORA's exchange and return policy — 14-day returns on unworn pieces.",
+      },
+      { property: "og:url", content: `${SITE_URL}/returns` },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: `${SITE_URL}/logo.png` },
+      { property: "og:site_name", content: "ANORA" },
+      { property: "og:locale", content: "en_US" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Exchange & Returns | ANORA New York" },
+      {
+        name: "twitter:description",
+        content: "ANORA's exchange and return policy — 14-day returns on unworn pieces.",
+      },
+      { name: "twitter:image", content: `${SITE_URL}/logo.png` },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/returns` }],
   }),
-  component: Returns,
+  component: ExchangeReturns,
 });
 
-function Returns() {
+function ExchangeReturns() {
+  const { data: settings } = useSiteSettings();
   return (
     <div className="px-5 lg:px-10 py-16 max-w-3xl mx-auto">
       <div className="text-center mb-12">
@@ -35,8 +57,9 @@ function Returns() {
         </Section>
         <Section title="How to Request an Exchange">
           Request an exchange from My Orders, or email{" "}
-          <span className="text-gold">care@anora.com</span> with your order number. We will arrange
-          complimentary collection and dispatch your new piece the moment your original is received.
+          <span className="text-gold">{settings?.email || DEFAULT_SITE_SETTINGS.email}</span> with
+          your order number. We will arrange complimentary collection and dispatch your new piece
+          the moment your original is received.
         </Section>
       </div>
     </div>

@@ -10,7 +10,8 @@ export type JobType =
   | "send_invoice_email"
   | "send_admin_email"
   | "analytics_events"
-  | "application_logs";
+  | "application_logs"
+  | "send_review_email";
 
 export type JobRecord = {
   id: string;
@@ -22,6 +23,7 @@ export type JobRecord = {
   retry_count: number;
   max_retries: number;
   next_retry_at: string | null;
+  scheduled_at: string | null;
   created_at: string;
   completed_at: string | null;
   error_message: string | null;
@@ -30,6 +32,17 @@ export type JobRecord = {
 type JobHandler = (job: JobRecord) => Promise<void>;
 
 const JOB_TYPES: JobType[] = [
+  "generate_invoice",
+  "generate_invoice_pdf",
+  "send_thank_you_email",
+  "send_invoice_email",
+  "send_admin_email",
+  "analytics_events",
+  "application_logs",
+  "send_review_email",
+];
+
+const DEFAULT_ORDER_JOBS: JobType[] = [
   "generate_invoice",
   "generate_invoice_pdf",
   "send_thank_you_email",
@@ -47,6 +60,7 @@ const JOB_SEQUENCE: Record<JobType, number> = {
   send_admin_email: 5,
   analytics_events: 6,
   application_logs: 7,
+  send_review_email: 8,
 };
 
 export class QueueService {
@@ -68,7 +82,7 @@ export class QueueService {
   }
 
   async enqueue(orderId: string, payload: Record<string, unknown>): Promise<void> {
-    const jobs = JOB_TYPES.map((jobType) => ({
+    const jobs = DEFAULT_ORDER_JOBS.map((jobType) => ({
       order_id: orderId,
       job_type: jobType,
       sequence: JOB_SEQUENCE[jobType],
@@ -77,55 +91,107 @@ export class QueueService {
       max_retries: config.queue.maxRetries,
     }));
 
-    const payloadSize = JSON.stringify(payload).length;
-    logger.info("Enqueue payload details", {
-      orderId,
-      payloadKeys: Object.keys(payload),
-      payloadSize,
-      hasCustomerEmail:
-        typeof payload.customerEmail === "string" && payload.customerEmail.length > 0,
-      hasThankYouHtml: typeof payload.thankYouHtml === "string" && payload.thankYouHtml.length > 0,
-      hasInvoiceEmailHtml:
-        typeof payload.invoiceEmailHtml === "string" && payload.invoiceEmailHtml.length > 0,
-      hasAdminSubject: typeof payload.adminSubject === "string" && payload.adminSubject.length > 0,
-      hasAdminHtml: typeof payload.adminHtml === "string" && payload.adminHtml.length > 0,
-    });
-
-    const { error } = await this.supabase.from("background_jobs").insert(jobs);
+    const { error } = await (this.supabase.from("background_jobs") as any).insert(jobs);
     if (error) throw new QueueError(`Failed to enqueue jobs: ${error.message}`, error);
 
     logger.info("Jobs enqueued", { orderId, count: jobs.length });
+
+    // Process them in the background without blocking the HTTP request thread
+    // using a non-blocking asynchronous call
+    this.processPending().catch((err) => {
+      logger.error("Failed to process enqueued jobs in background", { orderId, error: String(err) });
+    });
+  }
+
+  async enqueueSingle(orderId: string, jobType: JobType, payload: Record<string, unknown>, scheduledAt?: string): Promise<void> {
+    const job = {
+      order_id: orderId,
+      job_type: jobType,
+      sequence: JOB_SEQUENCE[jobType] || 1,
+      status: "pending" as const,
+      payload,
+      max_retries: config.queue.maxRetries,
+      scheduled_at: scheduledAt || null,
+    };
+
+    const { error } = await (this.supabase.from("background_jobs") as any).insert(job);
+    if (error) throw new QueueError(`Failed to enqueue single job: ${error.message}`, error);
+
+    logger.info("Single job enqueued", { orderId, jobType, scheduledAt });
   }
 
   async processPending(limit: number = config.queue.batchSize): Promise<number> {
-    // Get lowest-sequence pending job per order (serial processing per order)
-    const { data: jobs, error } = await this.supabase.rpc("get_pending_jobs", {
-      p_limit: limit,
-    });
+    // Recover stale jobs in processing state for over 15 minutes back to pending
+    try {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const { data: recovered, error: recoveryError } = await (this.supabase
+        .from("background_jobs") as any)
+        .update({ status: "pending", error: "Stale job recovered by queue sweeper" })
+        .eq("status", "processing")
+        .lt("started_at", fifteenMinutesAgo)
+        .select("id");
 
-    if (error) {
-      logger.error("Failed to fetch pending jobs", { error: error.message });
-      return 0;
+      if (recovered && recovered.length > 0) {
+        logger.info("Queue Sweeper: Recovered stale background jobs back to pending", {
+          count: recovered.length,
+          jobIds: recovered.map((j: any) => j.id),
+        });
+      }
+    } catch (err) {
+      logger.error("Queue Sweeper: Failed to sweep stale jobs", { error: String(err) });
     }
 
-    if (!jobs || jobs.length === 0) return 0;
-
-    let processed = 0;
-    for (const job of jobs) {
-      const ok = await this.execute(job);
-      if (ok) processed++;
+    // Process failed/retryable jobs first
+    try {
+      await this.retryFailed(limit);
+    } catch (err) {
+      logger.error("Queue retry failed during processPending", { error: String(err) });
     }
 
-    return processed;
+    let totalProcessed = 0;
+    let loopCount = 0;
+    const maxLoops = 20;
+
+    // Loop to process sequential steps for the enqueued orders
+    while (loopCount < maxLoops) {
+      const { data: jobs, error } = await (this.supabase as any).rpc("get_pending_jobs", {
+        p_limit: limit,
+      });
+
+      if (error) {
+        logger.error("Failed to fetch pending jobs", { error: error.message });
+        break;
+      }
+
+      if (!jobs || jobs.length === 0) {
+        break;
+      }
+
+      let processedInLoop = 0;
+      for (const job of jobs) {
+        const ok = await this.execute(job);
+        if (ok) processedInLoop++;
+      }
+
+      totalProcessed += processedInLoop;
+      loopCount++;
+
+      // If no jobs were successfully processed in this loop, break to avoid infinite loop
+      if (processedInLoop === 0) {
+        break;
+      }
+    }
+
+    return totalProcessed;
   }
 
   private async execute(job: JobRecord): Promise<boolean> {
     const jobId = job.id;
 
-    // Atomic claim — update to processing only if still pending
-    const { data: claimed, error: claimError } = await this.supabase
-      .from("background_jobs")
-      .update({ status: "processing" })
+    // Atomic claim — update to processing only if still pending, and log start time
+    const { data: claimed, error: claimError } = await (this.supabase
+      .from("background_jobs") as any)
+      .update({ status: "processing", started_at: new Date().toISOString() })
       .eq("id", jobId)
       .eq("status", "pending")
       .select()
@@ -138,33 +204,13 @@ export class QueueService {
 
     logger.info("Processing job", { jobId, jobType: job.job_type, orderId: job.order_id });
 
-    logger.info("Claimed payload diagnostics", {
-      jobId,
-      jobType: job.job_type,
-      claimedPayloadType: typeof claimed.payload,
-      claimedPayloadIsNull: claimed.payload === null,
-      claimedPayloadKeys:
-        typeof claimed.payload === "object" && claimed.payload !== null
-          ? Object.keys(claimed.payload as Record<string, unknown>)
-          : [],
-      hasCustomerEmail:
-        typeof (claimed.payload as Record<string, unknown>).customerEmail === "string",
-      hasThankYouHtml:
-        typeof (claimed.payload as Record<string, unknown>).thankYouHtml === "string",
-      hasInvoiceEmailHtml:
-        typeof (claimed.payload as Record<string, unknown>).invoiceEmailHtml === "string",
-      hasAdminSubject:
-        typeof (claimed.payload as Record<string, unknown>).adminSubject === "string",
-      hasAdminHtml: typeof (claimed.payload as Record<string, unknown>).adminHtml === "string",
-    });
-
     try {
       const handler = this.ensureHandler(job.job_type);
       await handler(claimed);
 
       // Mark completed
-      await this.supabase
-        .from("background_jobs")
+      await (this.supabase
+        .from("background_jobs") as any)
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -198,8 +244,8 @@ export class QueueService {
 
         const nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
 
-        await this.supabase
-          .from("background_jobs")
+        await (this.supabase
+          .from("background_jobs") as any)
           .update({
             status: "failed",
             retry_count: newRetryCount,
@@ -215,14 +261,14 @@ export class QueueService {
 
   private async moveToDlq(jobId: string, errorMessage: string): Promise<void> {
     try {
-      await this.supabase.rpc("move_to_dead_letter", {
+      await (this.supabase as any).rpc("move_to_dead_letter", {
         p_job_id: jobId,
         p_error: errorMessage,
       });
     } catch {
       // Fallback: direct update
-      await this.supabase
-        .from("background_jobs")
+      await (this.supabase
+        .from("background_jobs") as any)
         .update({
           status: "dlq",
           error_message: errorMessage,
@@ -234,7 +280,7 @@ export class QueueService {
   }
 
   async retryFailed(limit: number = config.queue.batchSize): Promise<number> {
-    const { data: jobs, error } = await this.supabase.rpc("get_retryable_jobs", {
+    const { data: jobs, error } = await (this.supabase as any).rpc("get_retryable_jobs", {
       p_limit: limit,
     });
 

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -179,6 +180,7 @@ function quickStatus(status: string): string {
 }
 
 export function ProductsTable() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -327,6 +329,9 @@ export function ProductsTable() {
   }
 
   function handleSaved() {
+    queryClient.invalidateQueries({ queryKey: ["admin-inventory"] });
+    queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
     refetch();
   }
 

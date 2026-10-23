@@ -95,7 +95,12 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
                 </span>
               </div>
               <div className="text-xs text-muted-foreground mt-2 space-y-1">
-                <p>Registered: {new Date(details.registration_date).toLocaleDateString()}</p>
+                <p>
+                  Registered:{" "}
+                  {details.registration_date
+                    ? new Date(details.registration_date).toLocaleDateString()
+                    : "—"}
+                </p>
                 <p>
                   Last activity:{" "}
                   {details.last_activity
@@ -141,7 +146,7 @@ export function CustomerProfileDrawer({ userId, open, onClose }: Props) {
             {details.recent_orders.length > 0 && (
               <div>
                 <h4 className="font-semibold mb-2">Recent Orders</h4>
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

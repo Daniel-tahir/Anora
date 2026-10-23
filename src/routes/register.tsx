@@ -1,17 +1,29 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { mapSignUpError } from "@/lib/auth-errors";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/register")({
-  head: () => ({ meta: [{ title: "Create Account — ANORA" }] }),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    redirectTo?: string;
+  } => ({
+    redirectTo: typeof search.redirectTo === "string" ? search.redirectTo : undefined,
+  }),
+  head: () => ({
+    meta: [{ title: "Create Account — ANORA" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: RegisterPage,
 });
 
 function RegisterPage() {
   const { user, loading, signUp } = useAuth();
   const navigate = useNavigate();
+  const search = Route.useSearch();
+  const redirectTo = search.redirectTo ?? "/account";
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -24,11 +36,13 @@ function RegisterPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/account" });
-  }, [user, loading]);
+    if (!loading && user && !user.is_anonymous) {
+      window.location.href = redirectTo;
+    }
+  }, [user, loading, redirectTo]);
 
   if (loading) return null;
-  if (user) return null;
+  if (user && !user.is_anonymous) return null;
 
   if (done) {
     return (
@@ -54,8 +68,8 @@ function RegisterPage() {
     e.preventDefault();
     setError("");
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Choose a stronger password (minimum 8 characters).");
       return;
     }
     if (password !== confirmPassword) {
@@ -73,7 +87,7 @@ function RegisterPage() {
     setSubmitting(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      setError(mapSignUpError(signUpError));
       return;
     }
 
@@ -81,7 +95,7 @@ function RegisterPage() {
       setDone(true);
     } else {
       toast.success("Account created");
-      navigate({ to: "/account" });
+      window.location.href = redirectTo;
     }
   };
 
@@ -169,7 +183,7 @@ function RegisterPage() {
           disabled={submitting}
           className="w-full bg-foreground text-background py-3.5 text-[11px] tracking-[0.32em] uppercase hover:bg-gold hover:text-ink transition-all duration-300 disabled:opacity-50"
         >
-          {submitting ? "Creating…" : "Create Account"}
+          {submitting ? "Creating account…" : "Create Account"}
         </button>
 
         <p className="text-center text-xs text-muted-foreground pt-2">

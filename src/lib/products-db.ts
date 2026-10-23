@@ -30,6 +30,8 @@ export interface DbProduct {
   is_active: boolean;
   status: string;
   category_id: string;
+  sale_active: boolean;
+  discount_percent: number;
   created_at: string;
   updated_at: string;
 }
@@ -40,11 +42,26 @@ export interface DbCategoryInfo {
   slug: string;
 }
 
+export interface DbProductVariant {
+  id: string;
+  name: string;
+  sku: string | null;
+  price: number | null;
+  compare_price: number | null;
+  stock: number;
+  sizes: string[];
+  size_stock: Record<string, number>;
+  color_hex: string | null;
+  is_active: boolean;
+  images: string[];
+}
+
 export interface ProductDetailResponse {
   product: DbProduct;
   images: DbProductImage[];
   category: DbCategoryInfo | null;
   parent_category: DbCategoryInfo | null;
+  variants: DbProductVariant[];
 }
 
 export async function getProductBySlug(slug: string): Promise<ProductDetailResponse | null> {

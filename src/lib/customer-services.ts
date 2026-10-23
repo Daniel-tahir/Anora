@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { products as catalog, type Product } from "./products";
+import { products as catalog, getProductPriceInfo, type Product, type ColorVariant } from "./products";
 import {
   DEFAULT_SIZE_THRESHOLD,
   getProductAvailability,
@@ -45,6 +45,88 @@ const searchCache = new Map<string, Product[]>();
 
 for (const p of catalog) {
   productRegistry.set(p.id, p);
+}
+
+let dbCatalog: Product[] = [];
+let dbCatalogLoaded = false;
+let dbCatalogPromise: Promise<void> | null = null;
+
+async function loadDbCatalog() {
+  if (dbCatalogPromise) return dbCatalogPromise;
+  dbCatalogPromise = (async () => {
+    try {
+      const { data: rows, error } = await supabase
+        .from("products")
+        .select(`
+          id, slug, name, price, compare_price, stock, size_stock, sizes, sku, colors, fabric, material, is_new, is_best_seller, featured, status, is_active, sale_active, discount_percent, description, category_id,
+          product_images (image_url, sort_order, variant_id),
+          product_variants (id, name, sku, price, compare_price, stock, sizes, size_stock, color_hex, is_active)
+        `)
+        .eq("is_active", true)
+        .eq("status", "active");
+
+      if (error) throw error;
+
+      if (rows) {
+        dbCatalog = rows.map((row) => {
+          const sortedImages = (row.product_images || [])
+            .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+            .map((img: any) => img.image_url)
+            .filter(Boolean);
+
+          const activeVariants = (row.product_variants || [])
+            .filter((v: any) => v.is_active)
+            .map((v: any) => {
+              const varImages = (row.product_images || [])
+                .filter((img: any) => img.variant_id === v.id)
+                .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+                .map((img: any) => img.image_url)
+                .filter(Boolean);
+
+              return {
+                id: v.id,
+                color: v.name,
+                color_hex: v.color_hex || undefined,
+                images: varImages.length > 0 ? varImages : sortedImages,
+                sizes: v.sizes || row.sizes || [],
+                sizeStock: v.size_stock || {},
+                stock: v.stock || 0,
+                sku: v.sku || row.sku || "",
+                priceOverride: v.price ? Number(v.price) : undefined,
+                comparePriceOverride: v.compare_price ? Number(v.compare_price) : undefined,
+              };
+            });
+
+          return {
+            id: row.id,
+            slug: row.slug,
+            name: row.name,
+            price: Number(row.price),
+            compare_price: row.compare_price,
+            category: "clothing" as const,
+            subcategory: "",
+            description: row.description || "",
+            fabric: row.fabric || undefined,
+            material: row.material || undefined,
+            color: (row.colors as any)?.[0]?.name || "Ivory",
+            sizes: (row.sizes as string[]) || [],
+            sku: row.sku || "",
+            stock: row.stock || 0,
+            sizeStock: (row.size_stock as Record<string, number>) || {},
+            images: sortedImages,
+            badge: row.is_new ? "New" : row.is_best_seller ? "Best Seller" : undefined,
+            sale_active: row.sale_active || false,
+            discount_percent: row.discount_percent || 0,
+            colorVariants: activeVariants.length > 0 ? activeVariants : undefined,
+          };
+        });
+        dbCatalogLoaded = true;
+      }
+    } catch (err) {
+      console.error("Failed to load search catalog", err);
+    }
+  })();
+  return dbCatalogPromise;
 }
 
 interface CartRow {
@@ -114,9 +196,14 @@ function hydrate() {
   ensureSessionId();
   rebuildSnapshots();
 
-  const missingIds = cartItems
-    .map((i) => i.productId)
-    .filter((id) => !productRegistry.has(id) && !catalog.find((p) => p.id === id));
+  loadDbCatalog().then(() => {
+    notify();
+  });
+
+  const missingIds = [
+    ...cartItems.map((i) => i.productId),
+    ...wishIds,
+  ].filter((id) => !productRegistry.has(id) && !catalog.find((p) => p.id === id));
   if (missingIds.length > 0) {
     loadProductsByIds(missingIds).then(() => {
       rebuildSnapshots();
@@ -182,7 +269,9 @@ function rebuildSnapshots() {
     items: cartItems,
     count: activeDetailed.reduce((sum, entry) => sum + entry.item.quantity, 0),
     subtotal: activeDetailed.reduce((sum, entry) => {
-      const price = entry.product?.price ?? 0;
+      if (!entry.product) return sum;
+      const variant = entry.item.variantId ? entry.product.colorVariants?.find((v) => v.id === entry.item.variantId) : undefined;
+      const price = getProductPriceInfo(entry.product, variant?.color).salePrice;
       return sum + entry.item.quantity * price;
     }, 0),
     detailed,
@@ -194,7 +283,7 @@ export function registerProduct(product: Product) {
   productRegistry.set(product.id, product);
 }
 
-function getProduct(productId: string) {
+export function getProduct(productId: string) {
   return productRegistry.get(productId) ?? catalog.find((entry) => entry.id === productId);
 }
 
@@ -212,50 +301,90 @@ async function loadProductsByIds(ids: string[]) {
     const { data: stockRows } = await supabase
       .from("products")
       .select(
-        "id, stock, size_stock, sizes, sku, price, name, slug, color, description, material, fabric, is_new, is_best_seller, low_stock_threshold, category_id",
+        "id, stock, size_stock, sizes, sku, price, compare_price, name, slug, color, description, material, fabric, is_new, is_best_seller, low_stock_threshold, category_id, sale_active, discount_percent",
       )
       .in("id", missing);
 
     const { data: imageRows } = await supabase
       .from("product_images")
-      .select("product_id, image_url, sort_order")
+      .select("product_id, image_url, sort_order, variant_id")
       .in("product_id", missing)
       .order("sort_order");
 
+    const { data: variantRows } = await supabase
+      .from("product_variants")
+      .select("id, product_id, name, sku, price, compare_price, stock, sizes, size_stock, color_hex")
+      .in("product_id", missing)
+      .eq("is_active", true);
+
     const imageMap = new Map<string, string[]>();
+    const variantImageMap = new Map<string, string[]>();
     if (imageRows) {
       for (const row of imageRows) {
-        const list = imageMap.get(row.product_id) ?? [];
-        list.push(row.image_url);
-        imageMap.set(row.product_id, list);
+        if (row.variant_id) {
+          const list = variantImageMap.get(row.variant_id) ?? [];
+          list.push(row.image_url);
+          variantImageMap.set(row.variant_id, list);
+        } else {
+          const list = imageMap.get(row.product_id) ?? [];
+          list.push(row.image_url);
+          imageMap.set(row.product_id, list);
+        }
+      }
+    }
+
+    const variantMap = new Map<string, ColorVariant[]>();
+    if (variantRows) {
+      for (const row of variantRows) {
+        const list = variantMap.get(row.product_id) ?? [];
+        const varImages = variantImageMap.get(row.id) ?? [];
+        list.push({
+          id: row.id,
+          color: row.name,
+          color_hex: row.color_hex ?? undefined,
+          images: varImages.length > 0 ? varImages : (imageMap.get(row.product_id) ?? []),
+          sizes: (row.sizes as string[]) ?? [],
+          sizeStock: (row.size_stock as Record<string, number>) ?? {},
+          stock: row.stock,
+          sku: row.sku ?? "",
+          priceOverride: row.price ? Number(row.price) : undefined,
+          comparePriceOverride: row.compare_price ? Number(row.compare_price) : undefined,
+        });
+        variantMap.set(row.product_id, list);
       }
     }
 
     if (stockRows) {
       for (const row of stockRows) {
+        const parentImages = imageMap.get(row.id) ?? [];
+        const colorVariants = variantMap.get(row.id);
         const stub: Product = {
           id: row.id,
           slug: row.slug,
           name: row.name,
           price: row.price,
+          compare_price: row.compare_price,
           category: "clothing" as const,
           subcategory: "",
           description: row.description ?? "",
           fabric: row.fabric ?? undefined,
           material: row.material ?? undefined,
-          color: row.color ?? "Ivory",
+          color: colorVariants?.[0]?.color ?? row.color ?? "Ivory",
           sizes: (row.sizes as string[]) ?? [],
           sku: row.sku ?? "",
           stock: row.stock,
           sizeStock: (row.size_stock as Record<string, number>) ?? {},
-          images: imageMap.get(row.id) ?? [],
+          images: parentImages.length > 0 ? parentImages : (colorVariants?.[0]?.images ?? []),
           badge: row.is_new ? "New" : row.is_best_seller ? "Best Seller" : undefined,
+          sale_active: row.sale_active ?? false,
+          discount_percent: row.discount_percent ?? 0,
+          colorVariants: colorVariants && colorVariants.length > 0 ? colorVariants : undefined,
         };
         productRegistry.set(row.id, stub);
       }
     }
   } catch {
-    // Best-effort: if fetch fails, cart items stay but won't have full product data
+    // Best-effort
   } finally {
     for (const id of missing) productsLoading.delete(id);
   }
@@ -304,10 +433,43 @@ export function getWishlistSnapshot() {
 export function setCustomerUser(userId: string | null) {
   hydrate();
   currentUserId = userId;
+  if (userId === null) {
+    cartItems = cartItems.map((item) => ({
+      ...item,
+      source: "local" as const,
+    }));
+    persist();
+    rebuildSnapshots();
+    notify();
+  }
 }
 
-export function validateCartStock(items: CartItem[] = cartItems) {
+export async function validateCartStock(items: CartItem[] = cartItems): Promise<CartItem[]> {
   hydrate();
+  if (items.length === 0) return items;
+
+  const productIds = Array.from(new Set(items.map((i) => i.productId)));
+  try {
+    const { data: rows } = await supabase
+      .from("products")
+      .select(`
+        id, slug, name, price, compare_price, stock, size_stock, sizes, sku, colors, fabric, material, is_new, is_best_seller, featured, status, is_active, sale_active, discount_percent, description, category_id, popularity_score, created_at,
+        product_images (image_url, sort_order, variant_id),
+        product_variants (id, name, sku, price, compare_price, stock, sizes, size_stock, color_hex, is_active)
+      `)
+      .in("id", productIds);
+
+    if (rows) {
+      const { mapDbProduct } = await import("./products-query");
+      rows.forEach((row) => {
+        const mapped = mapDbProduct(row);
+        productRegistry.set(mapped.id, mapped);
+      });
+    }
+  } catch (err) {
+    console.error("Failed to fetch fresh stock for validation:", err);
+  }
+
   const validated = items.map((item) => {
     const product = getProduct(item.productId);
     if (!product) {
@@ -347,11 +509,11 @@ export async function addToCart(productId: string, variantId?: string | null, si
   const product = getProduct(productId);
   const validation = product
     ? validateStockBeforeCheckout(product, {
-        productId,
-        variantId: variantId ?? undefined,
-        size,
-        quantity: qty,
-      })
+      productId,
+      variantId: variantId ?? undefined,
+      size,
+      quantity: qty,
+    })
     : null;
   if (validation && !validation.ok) {
     const isStockIssue = validation.code ? isStockOnlyError(validation.code) : false;
@@ -459,7 +621,7 @@ export async function syncCartWithServer() {
           user_id: currentUserId!,
           product_id: item.productId,
           variant_id: item.variantId ?? null,
-          size: item.size,
+          size: item.size || "",
           quantity: item.quantity,
         })),
       )
@@ -486,6 +648,9 @@ export async function syncCartWithServer() {
 }
 
 export async function mergeGuestCartToUser(userId: string) {
+  if (!userId || typeof userId !== "string" || userId.length !== 36) {
+    return cartItems;
+  }
   hydrate();
   currentUserId = userId;
 
@@ -494,6 +659,7 @@ export async function mergeGuestCartToUser(userId: string) {
     .select("id, product_id, variant_id, size, quantity")
     .eq("user_id", userId);
 
+  if (currentUserId !== userId) return cartItems;
   if (error) return cartItems;
 
   // If local cart was cleared while we read from DB (e.g., by checkout
@@ -504,6 +670,7 @@ export async function mergeGuestCartToUser(userId: string) {
   if (freshLocal.length === 0 && cartItems.length > 0) {
     cartItems = [];
     await supabase.from("cart_items").delete().eq("user_id", userId);
+    if (currentUserId !== userId) return cartItems;
     persist();
     rebuildSnapshots();
     notify();
@@ -514,6 +681,7 @@ export async function mergeGuestCartToUser(userId: string) {
   cartItems = freshLocal;
 
   await loadProductsByIds(cartItems.map((i) => i.productId));
+  if (currentUserId !== userId) return cartItems;
 
   const localMap = new Map<string, CartItem>();
   for (const item of cartItems) {
@@ -546,11 +714,11 @@ export async function mergeGuestCartToUser(userId: string) {
       const product = getProduct(item.productId);
       const validation = product
         ? validateStockBeforeCheckout(product, {
-            productId: item.productId,
-            variantId: item.variantId ?? undefined,
-            size: item.size,
-            quantity: maxQty,
-          })
+          productId: item.productId,
+          variantId: item.variantId ?? undefined,
+          size: item.size,
+          quantity: maxQty,
+        })
         : null;
       merged.set(key, {
         ...existing,
@@ -568,14 +736,16 @@ export async function mergeGuestCartToUser(userId: string) {
 
   cartItems = Array.from(merged.values());
   await syncCartWithServer();
+  if (currentUserId !== userId) return cartItems;
   rebuildSnapshots();
   return cartItems;
 }
 
-export async function addToWishlist(productId: string) {
+export async function addToWishlist(productId: string, variantId?: string | null) {
   hydrate();
-  if (!wishIds.includes(productId)) {
-    wishIds = [...wishIds, productId];
+  const key = variantId ? `${productId}|${variantId}` : productId;
+  if (!wishIds.includes(key)) {
+    wishIds = [...wishIds, key];
     persist();
     rebuildSnapshots();
     notify();
@@ -584,50 +754,82 @@ export async function addToWishlist(productId: string) {
   await supabase
     .from("wishlists")
     .upsert(
-      { user_id: currentUserId, product_id: productId },
-      { onConflict: "user_id,product_id" },
+      { user_id: currentUserId, product_id: productId, variant_id: variantId || null },
+      { onConflict: "user_id,product_id,variant_id" },
     );
 }
 
-export async function removeFromWishlist(productId: string) {
+export async function removeFromWishlist(productId: string, variantId?: string | null) {
   hydrate();
-  wishIds = wishIds.filter((id) => id !== productId);
+  const key = variantId ? `${productId}|${variantId}` : productId;
+  wishIds = wishIds.filter((id) => id !== key);
   persist();
   rebuildSnapshots();
   notify();
   if (!currentUserId) return;
-  await supabase
+
+  const query = supabase
     .from("wishlists")
     .delete()
     .eq("user_id", currentUserId)
     .eq("product_id", productId);
+
+  if (variantId) {
+    void query.eq("variant_id", variantId);
+  } else {
+    void query.is("variant_id", null);
+  }
+  await query;
 }
 
-export function isInWishlist(productId: string) {
+export function isInWishlist(productId: string, variantId?: string | null) {
   hydrate();
-  return wishIds.includes(productId);
+  const key = variantId ? `${productId}|${variantId}` : productId;
+  return wishIds.includes(key);
 }
 
 export async function syncWishlistOnLogin(userId: string) {
+  if (!userId || typeof userId !== "string" || userId.length !== 36) {
+    return wishIds;
+  }
   hydrate();
   currentUserId = userId;
   const { data, error } = await supabase
     .from("wishlists")
-    .select("product_id")
+    .select("product_id, variant_id")
     .eq("user_id", userId);
+  if (currentUserId !== userId) return wishIds;
   if (error) return wishIds;
+  const dbKeys = ((data ?? []) as any[]).map((row) =>
+    row.variant_id ? `${row.product_id}|${row.variant_id}` : row.product_id
+  );
   const merged = new Set([
-    ...((data ?? []) as WishlistRow[]).map((row) => row.product_id),
+    ...dbKeys,
     ...wishIds,
   ]);
   wishIds = Array.from(merged);
   await supabase.from("wishlists").upsert(
-    wishIds.map((productId) => ({ user_id: userId, product_id: productId })),
-    { onConflict: "user_id,product_id" },
+    wishIds.map((key) => {
+      const [productId, variantId] = key.split("|");
+      return { user_id: userId, product_id: productId, variant_id: variantId || null };
+    }),
+    { onConflict: "user_id,product_id,variant_id" },
   );
+  if (currentUserId !== userId) return wishIds;
   persist();
   rebuildSnapshots();
   notify();
+
+  const missingIds = wishIds.map(key => key.split("|")[0]).filter(
+    (id) => !productRegistry.has(id) && !catalog.find((p) => p.id === id)
+  );
+  if (missingIds.length > 0) {
+    await loadProductsByIds(missingIds);
+    if (currentUserId !== userId) return wishIds;
+    rebuildSnapshots();
+    notify();
+  }
+
   return wishIds;
 }
 
@@ -664,12 +866,18 @@ function scoreProduct(product: Product, query: string) {
 
 export function searchProducts(query: string) {
   hydrate();
+  loadDbCatalog().then(() => {
+    notify();
+  });
+
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return [];
   const cached = searchCache.get(trimmed);
   if (cached) return cached;
 
-  const localResults = catalog
+  const sourceList = dbCatalogLoaded && dbCatalog.length > 0 ? dbCatalog : catalog;
+
+  const localResults = sourceList
     .map((product) => ({ product, score: scoreProduct(product, trimmed) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score)

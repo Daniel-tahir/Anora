@@ -30,39 +30,133 @@ serve(async (req) => {
 
     const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
+    // Build modern responsive layout matching the main template styling
+    const GOLD = "#C9A96E";
+    const DARK = "#18181B";
+    const LIGHT_BG = "#FAFAFA";
+    const WHITE = "#FFFFFF";
+    const TEXT = "#27272A";
+    const MUTED = "#71717A";
+    const BORDER = "#E4E4E7";
+
     const itemsHtml = invoice.invoice_items
-      .map(
-        (item: any) =>
-          `<tr><td>${item.product_name}</td><td>${item.quantity}</td><td>$${Number(item.unit_price).toFixed(2)}</td><td>$${Number(item.total_price).toFixed(2)}</td></tr>`,
-      )
+      .map((item: any, i: number) => {
+        const subtotal = (Number(item.unit_price) * item.quantity).toFixed(2);
+        return `<tr>
+          <td style="padding:16px 8px 16px 0;border-bottom:1px solid ${BORDER};">
+            <p style="font-size:13px;color:${DARK};margin:0 0 4px;font-weight:500;">${item.product_name}</p>
+            <p style="font-size:11px;color:${MUTED};margin:0;text-transform:uppercase;letter-spacing:0.5px;">Qty ${item.quantity}</p>
+          </td>
+          <td style="padding:16px 0 16px 8px;border-bottom:1px solid ${BORDER};text-align:right;vertical-align:top;font-size:13px;color:${DARK};font-weight:500;">
+            $${subtotal}
+          </td>
+        </tr>`;
+      })
       .join("");
+
+    const emailHtml = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice ${invoice.invoice_number}</title>
+</head>
+<body style="margin:0;padding:0;background-color:${LIGHT_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${LIGHT_BG};">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table class="container" role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:${WHITE};border:1px solid ${BORDER};">
+          <!-- HEADER -->
+          <tr>
+            <td style="padding:48px 48px 32px;text-align:center;background-color:${WHITE};">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding-bottom:32px;border-bottom:1px solid ${BORDER};">
+                    <a href="https://anora-elegance.com" style="text-decoration:none;display:inline-block;">
+                      <h1 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:28px;letter-spacing:8px;color:${DARK};margin:0;font-weight:300;text-transform:uppercase;">ANORA</h1>
+                      <p style="font-size:10px;letter-spacing:4px;color:${MUTED};margin:6px 0 0;text-transform:uppercase;font-weight:400;">Atelier</p>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- BODY -->
+          <tr>
+            <td style="padding:0 48px;background-color:${WHITE};">
+              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;text-align:center;">Invoice Details</h2>
+              <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;">Dear ${invoice.customer_name || "Valued Customer"},</p>
+              <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;">Thank you for your order. Please find your detailed invoice outline below.</p>
+              
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${LIGHT_BG};border:1px solid ${BORDER};padding:24px;margin-bottom:24px;text-align:center;">
+                <tr>
+                  <td style="padding:0 8px;border-right:1px solid ${BORDER};width:33%;">
+                    <p style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};margin:0 0 6px;">Invoice No</p>
+                    <p style="font-size:13px;color:${DARK};margin:0;font-weight:500;">${invoice.invoice_number}</p>
+                  </td>
+                  <td style="padding:0 8px;border-right:1px solid ${BORDER};width:33%;">
+                    <p style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};margin:0 0 6px;">Date</p>
+                    <p style="font-size:13px;color:${DARK};margin:0;">${new Date(invoice.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                  </td>
+                  <td style="padding:0 8px;width:33%;">
+                    <p style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};margin:0 0 6px;">Status</p>
+                    <p style="font-size:13px;color:${GOLD};margin:0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${invoice.status}</p>
+                  </td>
+                </tr>
+              </table>
+              
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:16px;">
+                <thead>
+                  <tr>
+                    <th style="padding-bottom:12px;text-align:left;font-size:10px;letter-spacing:1px;color:${MUTED};text-transform:uppercase;font-weight:500;border-bottom:1px solid ${BORDER};">Selected Items</th>
+                    <th style="padding-bottom:12px;text-align:right;font-size:10px;letter-spacing:1px;color:${MUTED};text-transform:uppercase;font-weight:500;border-bottom:1px solid ${BORDER};">Total</th>
+                  </tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
+              </table>
+              
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+                <tr>
+                  <td style="padding:12px 0;text-align:right;border-top:1px solid ${BORDER};"><span style="font-size:14px;color:${DARK};font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Grand Total</span></td>
+                  <td style="padding:12px 0;text-align:right;border-top:1px solid ${BORDER};width:120px;"><span style="font-size:16px;color:${DARK};font-weight:600;">$${Number(invoice.total_amount).toFixed(2)}</span></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:32px 48px 48px;background-color:${WHITE};">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:32px 0 0;border-top:1px solid ${BORDER};">
+                    <p style="font-size:11px;color:${MUTED};text-align:center;margin:0 0 6px;line-height:1.6;letter-spacing:0.5px;">
+                      ANORA Atelier — Elegance Crafted For Every Moment
+                    </p>
+                    <p style="font-size:11px;color:${MUTED};text-align:center;margin:0;line-height:1.6;">
+                      <a href="mailto:support@anora-elegance.com" style="color:${DARK};text-decoration:none;font-weight:500;">support@anora-elegance.com</a>
+                    </p>
+                    <p style="font-size:10px;color:${MUTED};text-align:center;margin:16px 0 0;line-height:1.5;">
+                      © ${new Date().getFullYear()} ANORA. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 
     await resend.emails.send({
       from: Deno.env.get("FROM_EMAIL") || "invoices@anora-elegance.com",
       to: invoice.customer_email,
       subject: `Invoice ${invoice.invoice_number} from ANORA`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="font-size: 24px;">Invoice ${invoice.invoice_number}</h1>
-          <p>Dear ${invoice.customer_name},</p>
-          <p>Thank you for your order. Please find your invoice attached.</p>
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-            <thead>
-              <tr style="background: #f5f5f5;">
-                <th style="text-align: left; padding: 8px;">Item</th>
-                <th style="text-align: center; padding: 8px;">Qty</th>
-                <th style="text-align: right; padding: 8px;">Price</th>
-                <th style="text-align: right; padding: 8px;">Total</th>
-              </tr>
-            </thead>
-            <tbody>${itemsHtml}</tbody>
-          </table>
-          <p><strong>Total: $${Number(invoice.total_amount).toFixed(2)}</strong></p>
-          <p>Status: <strong>${invoice.status}</strong></p>
-          <hr />
-          <p style="color: #666; font-size: 12px;">ANORA — Elegance Crafted For Every Moment</p>
-        </div>
-      `,
+      html: emailHtml,
     });
 
     return new Response(JSON.stringify({ success: true }), {

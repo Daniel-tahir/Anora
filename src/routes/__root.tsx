@@ -8,19 +8,57 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, useContext, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider } from "@/lib/store";
+import { CartContext } from "@/lib/cart-context";
 import { AuthProvider } from "@/lib/auth-context";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { Toaster } from "@/components/ui/sonner";
+import { BrandLoader } from "@/components/common/BrandLoader";
+import { PaymentPreloader } from "@/components/common/PaymentPreloader";
+
+function SafeShellWrapper({ children }: { children: ReactNode }) {
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  const isAdmin = pathname.startsWith("/admin");
+
+  if (isAdmin) {
+    return <>{children}</>;
+  }
+
+  const [queryClient] = useState(() => new QueryClient());
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <StoreProvider>
+          <div className="flex min-h-screen flex-col bg-background text-foreground">
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-background focus:px-4 focus:py-2 focus:border focus:border-gold"
+            >
+              Skip to content
+            </a>
+            <Header />
+            <main id="main-content" className="flex-1">{children}</main>
+            <Footer />
+            <Toaster />
+          </div>
+        </StoreProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
 
 function NotFoundComponent() {
-  return (
+  const cartContext = useContext(CartContext);
+  const hasShell = cartContext !== null;
+
+  const content = (
     <div className="flex min-h-[70vh] items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <p className="eyebrow">404</p>
@@ -39,16 +77,26 @@ function NotFoundComponent() {
       </div>
     </div>
   );
+
+  if (hasShell) {
+    return content;
+  }
+
+  return <SafeShellWrapper>{content}</SafeShellWrapper>;
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error: rawError, reset }: { error: unknown; reset: () => void }) {
+  const error = rawError instanceof Error ? rawError : new Error(String(rawError));
   console.error(error);
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
-  return (
+  const cartContext = useContext(CartContext);
+  const hasShell = cartContext !== null;
+
+  const content = (
     <div className="flex min-h-[70vh] items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="font-serif text-3xl">Something went quietly wrong</h1>
@@ -73,6 +121,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       </div>
     </div>
   );
+
+  if (hasShell) {
+    return content;
+  }
+
+  return <SafeShellWrapper>{content}</SafeShellWrapper>;
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -80,14 +134,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ANORA — Elegance Crafted For Every Moment" },
+      { title: "ANORA New York | Luxury Women's Fashion" },
       {
         name: "description",
         content:
           "ANORA is a luxury house of clothing and jewellery — quiet, considered pieces crafted in our atelier for every moment of a lifetime.",
       },
       { name: "author", content: "ANORA" },
-      { property: "og:title", content: "ANORA — Elegance Crafted For Every Moment" },
+      { property: "og:title", content: "ANORA New York | Luxury Women's Fashion" },
       {
         property: "og:description",
         content:
@@ -104,12 +158,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
       { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/site.webmanifest" },
+      // Font preconnects
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Geist:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&family=Stardos+Stencil:wght@400;700&display=swap",
       },
+      // Payment SDK preconnects — open TCP+TLS before JS requests them
+      { rel: "preconnect", href: "https://js.stripe.com" },
+      { rel: "preconnect", href: "https://www.paypal.com" },
+      { rel: "preconnect", href: "https://www.paypalobjects.com" },
+      { rel: "dns-prefetch", href: "https://js.stripe.com" },
+      { rel: "dns-prefetch", href: "https://www.paypal.com" },
+      // Supabase API & CDN preconnect
+      { rel: "preconnect", href: "https://zqapvgxlnzpmdcwqlfyt.supabase.co", crossOrigin: "" },
     ],
   }),
   shellComponent: RootShell,
@@ -132,6 +195,23 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { useSiteSettings } from "@/lib/site-settings";
+
+function FaviconUpdater() {
+  const { data: settings } = useSiteSettings();
+
+  useEffect(() => {
+    if (settings?.favicon) {
+      const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = settings.favicon;
+      }
+    }
+  }, [settings?.favicon]);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
@@ -139,20 +219,29 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <FaviconUpdater />
       <AuthProvider>
         <StoreProvider>
           <div className="flex min-h-screen flex-col bg-background text-foreground">
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-background focus:px-4 focus:py-2 focus:border focus:border-gold"
+            >
+              Skip to content
+            </a>
             {!isAdmin && (
               <>
                 <Header />
                 <WhatsAppButton />
               </>
             )}
-            <main className={isAdmin ? "" : "flex-1"}>
+            <main id="main-content" className={isAdmin ? "" : "flex-1"}>
               <Outlet />
             </main>
             {!isAdmin && <Footer />}
             <Toaster />
+            <BrandLoader />
+            <PaymentPreloader />
           </div>
         </StoreProvider>
       </AuthProvider>

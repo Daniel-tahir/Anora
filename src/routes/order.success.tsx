@@ -3,33 +3,64 @@ import { useEffect, useState } from "react";
 import { ProtectedRoute, useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { CheckCircle, FileDown, Loader } from "lucide-react";
+import { formatAddress, getInvoicePdfUrl } from "@/lib/payments";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/order/success")({
-  validateSearch: (search: Record<string, string | undefined>) => ({
+  validateSearch: (
+    search: Record<string, string | undefined>,
+  ): {
+    session_id?: string;
+    orderNumber?: string;
+    invoiceNumber?: string;
+    orderId?: string;
+  } => ({
     session_id: search.session_id,
     orderNumber: search.orderNumber,
     invoiceNumber: search.invoiceNumber,
     orderId: search.orderId,
   }),
-  head: () => ({ meta: [{ title: "Order Confirmed — ANORA" }] }),
+  head: () => ({
+    meta: [{ title: "Order Confirmed — ANORA" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: OrderSuccessPage,
 });
 
 function OrderSuccessPage() {
-  return (
-    <ProtectedRoute>
-      <OrderSuccess />
-    </ProtectedRoute>
-  );
+  return <OrderSuccess />;
 }
 
-async function downloadInvoice(invoiceId: string) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  if (!token) return;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const apiUrl = `${origin}/api/invoice/${invoiceId}/pdf?token=${encodeURIComponent(token)}`;
-  window.open(apiUrl, "_blank");
+async function downloadInvoice(invoiceId: string): Promise<boolean> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      toast.error("Please sign in to download your invoice.");
+      return false;
+    }
+
+    const result = await getInvoicePdfUrl({
+      data: {
+        invoiceId,
+        accessToken: token,
+      },
+    });
+
+    const response = await fetch(result.signedUrl);
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${result.invoiceNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return true;
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : "Failed to download invoice PDF.");
+    return false;
+  }
 }
 
 function DownloadInvoice({ invoiceId }: { invoiceId: string }) {
@@ -37,16 +68,16 @@ function DownloadInvoice({ invoiceId }: { invoiceId: string }) {
   return (
     <button
       type="button"
-      onClick={() => {
+      onClick={async () => {
         setLoading(true);
-        downloadInvoice(invoiceId);
-        setTimeout(() => setLoading(false), 3000);
+        await downloadInvoice(invoiceId);
+        setLoading(false);
       }}
       disabled={loading}
       className="mt-3 inline-flex items-center gap-2 text-sm text-gold hover:underline disabled:opacity-50"
     >
       {loading ? <Loader className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-      {loading ? "Opening..." : "Download Invoice PDF"}
+      {loading ? "Downloading..." : "Download Invoice PDF"}
     </button>
   );
 }
@@ -64,25 +95,19 @@ function OrderSuccess() {
   const sessionId = searchParams.get("session_id");
 
   useEffect(() => {
-    if (!user) return;
-
     async function fetchByOrderId() {
       if (!orderId) return null;
 
-      const { data } = await supabase
-        .from("orders")
-        .select(
-          `id, order_number, status, subtotal, total, payment_status, payment_method,
-           shipping_address, billing_address, created_at,
-           order_items (id, product_id, name, price, quantity, image_url, attributes),
-           invoices (id, invoice_number, status, total_amount),
-           order_timeline (id, event_type, description, created_at)`,
-        )
-        .eq("id", orderId)
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_order_details", {
+        p_order_id: orderId,
+      });
 
-      return data;
+      if (error) {
+        console.error("Error fetching order details:", error);
+        return null;
+      }
+
+      return (data as { order?: Record<string, unknown> })?.order ?? data;
     }
 
     async function fetchBySessionId() {
@@ -127,24 +152,26 @@ function OrderSuccess() {
 
       // If no session_id or orderId, try to find most recent order
       if (!sessionId && !orderId) {
-        const { data: recentOrder } = await supabase
-          .from("orders")
-          .select(
-            `id, order_number, status, subtotal, total, payment_status, payment_method,
-             shipping_address, billing_address, created_at,
-             order_items (id, product_id, name, price, quantity, image_url, attributes),
-             invoices (id, invoice_number, status, total_amount),
-             order_timeline (id, event_type, description, created_at)`,
-          )
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        if (user) {
+          const { data: recentOrder } = await supabase
+            .from("orders")
+            .select(
+              `id, order_number, status, subtotal, total, payment_status, payment_method,
+               shipping_address, billing_address, created_at,
+               order_items (id, product_id, name, price, quantity, image_url, attributes),
+               invoices (id, invoice_number, status, total_amount),
+               order_timeline (id, event_type, description, created_at)`,
+            )
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (recentOrder) {
-          setOrder(recentOrder);
-          setLoading(false);
-          return;
+          if (recentOrder) {
+            setOrder(recentOrder);
+            setLoading(false);
+            return;
+          }
         }
 
         if (!orderNumber) {
@@ -212,7 +239,7 @@ function OrderSuccess() {
 
   const displayOrderNumber = (order?.order_number as string) ?? orderNumber ?? "";
   const displayInvoiceNumber = invoiceNumber ?? "";
-  const items = (order?.order_items as Array<Record<string, unknown>>) ?? [];
+  const items = ((order?.items ?? order?.order_items) as Array<Record<string, unknown>>) ?? [];
   const invoice = (order?.invoices as Array<Record<string, unknown>>)?.[0] ?? null;
   const shippingAddr = order?.shipping_address as Record<string, string> | null;
 
@@ -234,7 +261,7 @@ function OrderSuccess() {
             {items.map((item: Record<string, unknown>) => (
               <div key={item.id as string} className="flex justify-between text-sm">
                 <div className="flex items-center gap-3">
-                  {item.image_url && (
+                  {!!item.image_url && (
                     <img
                       src={item.image_url as string}
                       alt={item.name as string}
@@ -279,15 +306,8 @@ function OrderSuccess() {
         {shippingAddr && (
           <div className="p-6">
             <h2 className="eyebrow mb-3">Shipping Address</h2>
-            <div className="text-sm text-muted-foreground leading-relaxed">
-              {Object.entries(shippingAddr)
-                .filter(([_, v]) => v)
-                .map(([k, v]) => (
-                  <span key={k}>
-                    {v}
-                    <br />
-                  </span>
-                ))}
+            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+              {formatAddress(shippingAddr)}
             </div>
           </div>
         )}
