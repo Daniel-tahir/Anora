@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import hero from "@/assets/hero.webp";
 import { useSiteSettings, DEFAULT_SITE_SETTINGS } from "@/lib/site-settings";
 import catClothing from "@/assets/cat-clothing.webp";
@@ -408,9 +409,20 @@ function Home() {
             Quiet dispatches from the atelier — new pieces, stories, and private previews.
           </p>
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              if (!newsletterEmail) return;
+              const email = newsletterEmail.trim().toLowerCase();
+              if (!email) return;
+              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                toast.error("Please enter a valid email address");
+                return;
+              }
+              const { error } = await supabase.from("newsletters").insert({ email, source: "homepage" });
+              // 23505 = already subscribed: treat as success so we never reveal who is on the list
+              if (error && error.code !== "23505") {
+                toast.error("Something went wrong", { description: "Please try again in a moment." });
+                return;
+              }
               toast.success("Welcome to ANORA", { description: "Your subscription is confirmed." });
               setNewsletterEmail("");
             }}

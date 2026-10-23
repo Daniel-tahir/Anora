@@ -159,6 +159,31 @@ export default defineEventHandler(async (event) => {
 
       const result = await createOrderFromPaymentIntent({ paymentIntentId: piId });
       if (!result.success) {
+        // Paid, but the item sold out in the meantime: refund automatically instead of leaving the
+        // customer charged with no order (and Stripe retrying a failure that can never succeed).
+        if (/insufficient\s+(variant\s+)?stock/i.test(result.error ?? "")) {
+          await container.stripe.refunds.create(
+            {
+              payment_intent: piId,
+              reason: "requested_by_customer",
+              metadata: { auto_refund: "insufficient_stock" },
+            },
+            { idempotencyKey: `oos-refund-${piId}` },
+          );
+          logger.warn("Stripe Webhook: Out of stock after payment - automatically refunded", { paymentIntentId: piId });
+          try {
+            await container.email.sendAdminNotification(
+              "Automatic refund - item sold out during checkout",
+              `<p>A customer paid but an item sold out before the order could be created. The payment <strong>${escapeHtml(
+                piId,
+              )}</strong> was refunded automatically in full.</p>`,
+            );
+          } catch (mailErr) {
+            logger.warn("Stripe Webhook: Failed to send auto-refund notification", { error: String(mailErr) });
+          }
+          await finalizeWebhookEvent(supabase, stripeEvent.id, "completed", undefined, "auto_refunded_insufficient_stock");
+          return { received: true, status: "auto_refunded_insufficient_stock" };
+        }
         throw new Error(`Order creation failed: ${result.error}`);
       }
 

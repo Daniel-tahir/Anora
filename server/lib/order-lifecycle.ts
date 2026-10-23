@@ -599,9 +599,13 @@ export async function runCheckoutPipeline(
           const discountAmt = params.discountAmount || 0;
 
           // 1. Atomically increment coupon usage count
-          await (supabase.from("coupons") as any)
-            .update({ used_count: (coupon.used_count || 0) + 1 })
-            .eq("id", coupon.id);
+          const { data: counted } = await (supabase as any).rpc("increment_coupon_usage", {
+            p_code: params.couponCode,
+          });
+          if (counted === false) {
+            // The customer has already paid, so the order stands; flag it for the admin to review.
+            logger.warn("Coupon usage limit reached at redemption time (race)", { couponId: coupon.id, orderId });
+          }
 
           // 2. Insert redemption log only if user is authenticated
           if (params.userId) {
@@ -901,9 +905,14 @@ export async function createOrderFromPayPal(
 
   logger.info("Payment Verified", { paymentMethod: "paypal", paypalOrderId: input.paypalOrderId });
 
+  if (!/^[A-Za-z0-9_-]{5,64}$/.test(input.paypalOrderId)) {
+    return { success: false, error: "Invalid PayPal order id" };
+  }
+  // The RPC stores PayPal payments as `paypal_<id>` in stripe_payment_intent_id; check both columns.
   const { data: existingOrder } = await (supabase.from("orders") as any)
     .select("id, order_number, status")
-    .eq("paypal_order_id", input.paypalOrderId)
+    .or(`paypal_order_id.eq.${input.paypalOrderId},stripe_payment_intent_id.eq.paypal_${input.paypalOrderId}`)
+    .limit(1)
     .maybeSingle();
 
   if (existingOrder) {

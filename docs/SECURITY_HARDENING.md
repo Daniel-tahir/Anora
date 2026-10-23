@@ -136,3 +136,28 @@ This file records **what was changed, why, whether it was proven to work, and wh
 
 ### Rotate secrets if the repo was ever public
 If `brain/`, `AUDIT.md` or `structure.txt` were public, treat them as disclosed. No secrets were found committed, but rotate Supabase service key, Stripe, Resend and PayPal keys as routine hygiene before launch.
+
+---
+
+## 6. Batch 3 — remaining critical items (branch `security/hardening-batch-2`)
+
+Migration: `20260801000200_paypal_sessions_and_coupon_atomic.sql` (additive; no existing object is changed except the tracking-id generator).
+
+| # | Problem | Fix | Verified | Why this approach |
+|---|---|---|---|---|
+| B3-1 | **PayPal "charged but no order"** if the tab closes after payment | When the PayPal order is created the server stores the *validated* cart/prices/addresses (`paypal_checkout_sessions`, service-role only). The signature-verified webhook (`PAYMENT.CAPTURE.COMPLETED`) now reads the PayPal order id from `supplementary_data.related_ids.order_id`, checks the captured amount equals the stored total, and creates the order through the same idempotent function the browser uses | Typechecks; table access verified (anon/customer cannot read or forge sessions). **The webhook path itself is untested end to end** — it needs a real PayPal webhook; test in sandbox once `PAYPAL_WEBHOOK_ID` is set | Re-using the stored server quote means the webhook never trusts the browser or PayPal's payload for *what* was bought, only for *that money arrived*. Safe now: the webhook is closed until configured |
+| B3-2 | PayPal duplicate-order lookup checked a column the order function never fills | Lookup now also checks `stripe_payment_intent_id = 'paypal_<id>'` (where it is really stored); the unique index on that column already stops true duplicates | Typechecks | Needed so browser + webhook can both run without double orders |
+| B3-3 | **Sold out after payment → customer charged, no order**, Stripe retrying forever | Stripe webhook detects the "insufficient stock" failure and refunds the PaymentIntent in full automatically (idempotency key `oos-refund-<pi>`), emails the admin, marks the event handled | Typechecks; logic reviewed against the exact error text in the order function. **Not run against Stripe** — test with a test-mode card and a 1-unit product | A refund is the only outcome that is correct for the customer; leaving it to manual work loses money/trust. Idempotency key makes retries safe. (PayPal has the same gap; it needs a PayPal refund call — still open) |
+| B3-4 | Background jobs depend on timers that don't run on serverless | New `GET /api/cron/process-jobs` runs the queue once. Requires `Authorization: Bearer $CRON_SECRET` (≥16 chars), constant-time compare, **disabled (503) if the secret is unset** | Typechecks; job claiming is already atomic so it is safe next to the old timers | A scheduler calling a protected endpoint is the standard serverless pattern. I did **not** add `vercel.json` crons: Vercel's free plan only allows daily crons and a faster schedule makes the *deploy fail*. Use Supabase `pg_cron` + `pg_net` (free), Vercel Cron (Pro), or any external pinger every 1-5 minutes |
+| B3-5 | Coupon `used_count` read-modify-write (lost updates; `max_uses` exceeded) | `increment_coupon_usage()` does one atomic conditional UPDATE | Tested: limit 2 → true, true, false; count stays 2; anon cannot call | Single SQL statement is atomic without locks. (Strict *pre-payment* reservation would be larger work) |
+| B3-6 | Guest tracking id: 8 chars (~40 bits) from `random()` on a public lookup | New ids: 16 hex chars (64 bits) from the CSPRNG behind `gen_random_uuid()`; old ids still resolve; UI has no length assumptions | Generated sample `498A22E607D14185`; lookup unchanged | Stronger without breaking existing tracking links |
+| B3-7 | Newsletter form showed "confirmed" but saved nothing | Inserts into the existing `newsletters` table (public insert policy already exists); duplicate emails are treated as success so the list isn't revealed | Anonymous insert verified on the test DB | Uses what's already in the schema |
+
+**Enable after deploying:** set `CRON_SECRET` (random 32+ chars) in Vercel, then schedule the endpoint, e.g. Supabase SQL (replace values):
+```sql
+select cron.schedule('anora-jobs', '* * * * *', $$
+  select net.http_get(url := 'https://YOUR-DOMAIN/api/cron/process-jobs',
+                      headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET')); $$);
+```
+
+**Deliberately not changed (would risk breaking working flows):** tax fail-open and shipping rates (need a business decision on rates), `record_failed_login` lockout (needs server-side redesign), Stripe Checkout Session path (appears unused; remove after confirming), PayPal automatic refund on out-of-stock, strict coupon pre-payment reservation.

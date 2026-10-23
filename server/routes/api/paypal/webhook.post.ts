@@ -224,31 +224,59 @@ export default defineEventHandler(async (event) => {
         throw new Error("Invalid capture resource data");
       }
 
-      const customId = resource.custom_id as string | undefined;
-      if (!customId) {
-        logger.info("PayPal Webhook: Capture completed without custom_id (skipping order creation fallback)", {
+      // PayPal puts the checkout order id in supplementary_data.related_ids.order_id
+      const related = (resource.supplementary_data as { related_ids?: { order_id?: string } } | undefined)?.related_ids;
+      const paypalOrderId = related?.order_id ?? (resource.custom_id as string | undefined);
+      if (!paypalOrderId) {
+        logger.info("PayPal Webhook: Capture completed without an order id (nothing to create)", {
           resourceId: resource.id,
         });
         await finalizeWebhookEvent(supabase, parsed.id, "completed");
-        logger.info("PayPal Webhook: Database event finalized", { eventId: parsed.id, status: "completed" });
-        return { received: true, skipped: true, reason: "no_custom_id" };
+        return { received: true, skipped: true, reason: "no_order_id" };
       }
 
-      const paypalOrderId = customId;
-      logger.info("PayPal Webhook: Payment succeeded", {
-        eventId: parsed.id,
+      logger.info("PayPal Webhook: Payment succeeded", { eventId: parsed.id, paypalOrderId, resourceId: resource.id });
+
+      // The server remembered what this checkout was for when the PayPal order was created.
+      const { data: session } = await (supabase.from("paypal_checkout_sessions") as any)
+        .select("*")
+        .eq("paypal_order_id", paypalOrderId)
+        .maybeSingle();
+
+      if (!session) {
+        // e.g. a payment started before this feature existed; the browser flow handles those.
+        logger.warn("PayPal Webhook: No stored checkout session for capture", { paypalOrderId });
+        await finalizeWebhookEvent(supabase, parsed.id, "completed");
+        return { received: true, skipped: true, reason: "no_session" };
+      }
+
+      // The captured money must equal what the server asked for.
+      const amount = resource.amount as { value?: string; currency_code?: string } | undefined;
+      const capturedCents = Math.round(Number(amount?.value) * 100);
+      if (amount?.currency_code !== "USD" || capturedCents !== session.total_cents) {
+        throw new Error("Captured amount does not match the stored checkout total");
+      }
+
+      // Idempotent: if the browser already created the order this returns the existing one.
+      const { createOrderFromPayPal } = await import("../../../lib/order-lifecycle");
+      const result = await createOrderFromPayPal({
+        userId: session.user_id ?? null,
+        email: session.email,
         paypalOrderId,
-        resourceId: resource.id,
+        items: session.items,
+        shippingAddress: session.shipping_address,
+        billingAddress: session.billing_address ?? session.shipping_address,
+        total: session.total_cents / 100,
+        paymentMethod: session.payment_method,
+        couponCode: session.coupon_code ?? undefined,
+        discountAmount: Number(session.discount_amount ?? 0),
       });
+      if (!result.success) {
+        throw new Error(`Order creation failed: ${result.error}`);
+      }
 
-      // Handled synchronously client-side via capture callback; webhook finalized as completed
-      await finalizeWebhookEvent(supabase, parsed.id, "completed");
-      logger.info("PayPal Webhook: Database event finalized", {
-        eventId: parsed.id,
-        status: "completed",
-      });
-
-      return { received: true, status: "completed", paypal_order_id: paypalOrderId };
+      await finalizeWebhookEvent(supabase, parsed.id, "completed", result.orderId);
+      return { received: true, status: "completed", paypal_order_id: paypalOrderId, order_id: result.orderId };
     }
 
     if (parsed.event_type === "PAYMENT.CAPTURE.DENIED") {

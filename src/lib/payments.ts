@@ -121,21 +121,19 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
 export const createPayPalOrder = createServerFn({ method: "POST" })
   .validator(PayPalCreateSchema)
   .handler(async ({ data }) => {
-    const { items, accessToken, couponCode } = data;
+    const { email, items, shippingAddress, billingAddress, accessToken, couponCode } = data;
 
     const { enforceRateLimit } = await import("../../server/lib/security");
     await enforceRateLimit("paypal-create", 20, 600);
 
     // Optional token validation (non-blocking for guest)
-    if (accessToken) {
-      await getUserId(accessToken);
-    }
+    const userId = accessToken ? await getUserId(accessToken) : null;
 
     const { createPayPalOrder: serverCreatePayPalOrder, buildPayPalQuote } =
       await import("../../server/lib/payments");
     const quote = await buildPayPalQuote(items, couponCode);
 
-    return await serverCreatePayPalOrder({
+    const created = await serverCreatePayPalOrder({
       items: quote.validation.items.map((v) => ({
         name: v.productName,
         quantity: v.quantity,
@@ -147,6 +145,38 @@ export const createPayPalOrder = createServerFn({ method: "POST" })
       shipping: quote.shippingCents,
       tax: quote.taxCents,
     });
+
+    // Remember what this PayPal order is for (server-validated), so the verified PayPal webhook can
+    // create the order even if the customer closes the tab after paying. Never blocks checkout.
+    try {
+      const { getContainer } = await import("../../server/container");
+      await (getContainer().supabase as any).from("paypal_checkout_sessions").upsert({
+        paypal_order_id: created.id,
+        user_id: userId,
+        email,
+        items: quote.validation.items.map((v) => ({
+          productId: v.productId,
+          variantId: v.variantId ?? null,
+          size: v.size ?? "",
+          quantity: v.quantity,
+          unitPrice: v.unitPrice,
+          productName: v.productName,
+          imageUrl: v.imageUrl,
+          color: v.color,
+          variantName: v.variantName,
+        })),
+        shipping_address: shippingAddress,
+        billing_address: billingAddress ?? shippingAddress,
+        payment_method: "paypal",
+        coupon_code: quote.couponCode ?? null,
+        discount_amount: quote.discountAmount,
+        total_cents: quote.totalCents,
+      });
+    } catch (err) {
+      console.warn("Failed to store PayPal checkout session", err);
+    }
+
+    return created;
   });
 
 export const capturePayPalOrder = createServerFn({ method: "POST" })
