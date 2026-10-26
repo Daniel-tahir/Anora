@@ -70,7 +70,7 @@ DECLARE
 BEGIN
   FOR r IN
     SELECT p.oid, p.proname, p.proretset, p.provolatile, p.proargnames, p.pronargs,
-           p.prorettype = 'trigger'::regtype AS is_trigger,
+           p.prorettype IN ('trigger'::regtype, 'event_trigger'::regtype) AS is_trigger,
            pg_get_function_arguments(p.oid)        AS arg_defs,
            pg_get_function_identity_arguments(p.oid) AS ident_args,
            pg_get_function_result(p.oid)           AS ret
@@ -96,32 +96,38 @@ BEGIN
       CONTINUE;
     END IF;
 
-    -- wrap: move implementation to app_private, republish behind the staff guard
-    IF r.pronargs > 0 AND r.proargnames IS NULL THEN
-      RAISE EXCEPTION 'cannot wrap % (unnamed arguments)', r.proname;
-    END IF;
+    BEGIN  -- sub-transaction: if one function cannot be wrapped, it is rolled back, closed to anon and reported
+      -- wrap: move implementation to app_private, republish behind the staff guard
+      IF r.pronargs > 0 AND r.proargnames IS NULL THEN
+        RAISE EXCEPTION 'cannot wrap % (unnamed arguments)', r.proname;
+      END IF;
 
-    SELECT coalesce(string_agg(format('%1$I => %1$I', nm), ', '), '')
-      INTO call_args
-      FROM unnest(coalesce(r.proargnames, ARRAY[]::text[])) AS nm;
+      SELECT coalesce(string_agg(format('%1$I => %1$I', nm), ', '), '')
+        INTO call_args
+        FROM unnest(coalesce(r.proargnames, ARRAY[]::text[])) AS nm;
 
-    vol := CASE r.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END;
+      vol := CASE r.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END;
 
-    EXECUTE format('ALTER FUNCTION public.%I(%s) SET SCHEMA app_private', r.proname, r.ident_args);
-    EXECUTE format('REVOKE ALL ON FUNCTION app_private.%I(%s) FROM PUBLIC, anon, authenticated', r.proname, r.ident_args);
+      EXECUTE format('ALTER FUNCTION public.%I(%s) SET SCHEMA app_private', r.proname, r.ident_args);
+      EXECUTE format('REVOKE ALL ON FUNCTION app_private.%I(%s) FROM PUBLIC, anon, authenticated', r.proname, r.ident_args);
 
-    IF r.proretset THEN
-      body := format('PERFORM app_private.assert_staff(); RETURN QUERY SELECT * FROM app_private.%I(%s);', r.proname, call_args);
-    ELSE
-      body := format('PERFORM app_private.assert_staff(); RETURN app_private.%I(%s);', r.proname, call_args);
-    END IF;
+      IF r.proretset THEN
+        body := format('PERFORM app_private.assert_staff(); RETURN QUERY SELECT * FROM app_private.%I(%s);', r.proname, call_args);
+      ELSE
+        body := format('PERFORM app_private.assert_staff(); RETURN app_private.%I(%s);', r.proname, call_args);
+      END IF;
 
-    EXECUTE format(
-      'CREATE FUNCTION public.%I(%s) RETURNS %s LANGUAGE plpgsql %s SECURITY DEFINER SET search_path = '''' AS $f$ BEGIN %s END; $f$',
-      r.proname, r.arg_defs, r.ret, vol, body);
-    EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon', r.proname, r.ident_args);
-    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated, service_role', r.proname, r.ident_args);
-    n_wrapped := n_wrapped + 1;
+      EXECUTE format(
+        'CREATE FUNCTION public.%I(%s) RETURNS %s LANGUAGE plpgsql %s SECURITY DEFINER SET search_path = '''' AS $f$ BEGIN %s END; $f$',
+        r.proname, r.arg_defs, r.ret, vol, body);
+      EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon', r.proname, r.ident_args);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated, service_role', r.proname, r.ident_args);
+      n_wrapped := n_wrapped + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'hardening: could not wrap public.%(%): % -- revoked from anon only, REVIEW MANUALLY', r.proname, r.ident_args, SQLERRM;
+      EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon', r.proname, r.ident_args);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated, service_role', r.proname, r.ident_args);
+    END;
   END LOOP;
   RAISE NOTICE 'hardening: % functions locked to service_role, % wrapped behind staff guard', n_locked, n_wrapped;
 END
