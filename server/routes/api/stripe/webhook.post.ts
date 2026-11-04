@@ -282,6 +282,16 @@ export default defineEventHandler(async (event) => {
         error: paymentIntent.last_payment_error,
       });
 
+      // Tell the customer, if we know their email. A failure here must never fail the webhook.
+      try {
+        const customerEmail: string | undefined = paymentIntent.receipt_email || paymentIntent.metadata?.email || undefined;
+        if (customerEmail && typeof paymentIntent.amount === "number") {
+          await container.email.sendPaymentFailed(customerEmail, { totalAmount: paymentIntent.amount / 100 });
+        }
+      } catch (mailErr) {
+        logger.warn("Stripe Webhook: Failed to send payment-failed email", { error: String(mailErr) });
+      }
+
       await finalizeWebhookEvent(supabase, stripeEvent.id, "completed");
       return { received: true, status: "payment_failed" };
     }

@@ -218,6 +218,110 @@ export class ServerContainer {
     });
 
     // send_review_email
+    this._queue.register("send_order_status_email", async (job: JobRecord) => {
+      const status = (job.payload as { status?: string } | null)?.status;
+      if (!job.order_id || !status) throw new Error("Missing order or status in email job");
+
+      const { data: order, error: orderErr } = await (this.supabase.from("orders") as any)
+        .select("id, email, order_number, shipping_address, courier, courier_tracking_number, tracking_id, estimated_delivery, cancellation_reason")
+        .eq("id", job.order_id)
+        .single();
+      if (orderErr || !order) throw new Error(`Order not found for status email: ${orderErr?.message || "empty"}`);
+      if (!order.email) return;
+
+      const { data: rows } = await (this.supabase.from("order_items") as any)
+        .select("name, price, quantity, image_url, attributes")
+        .eq("order_id", job.order_id);
+      const items = (rows ?? []).map((r: any) => ({
+        name: r.name,
+        imageUrl: r.image_url ?? undefined,
+        size: String(r.attributes?.size ?? r.attributes?.Size ?? ""),
+        color: r.attributes?.color ?? r.attributes?.Color ?? undefined,
+        quantity: Number(r.quantity ?? 1),
+        unitPrice: Number(r.price ?? 0),
+      }));
+      const addr = order.shipping_address ?? {};
+      const customerName = [addr.firstName, addr.lastName].filter(Boolean).join(" ") || undefined;
+
+      if (status === "cancelled") {
+        let refundAmount = 0;
+        try {
+          const { data: refunds } = await (this.supabase.from("refunds") as any)
+            .select("amount, status")
+            .eq("order_id", job.order_id)
+            .in("status", ["processed", "completed"]);
+          refundAmount = (refunds ?? []).reduce((sum: number, r: any) => sum + Number(r.amount ?? 0), 0);
+        } catch {
+          // refund lookup is optional
+        }
+        await this.email.sendOrderCancelled(
+          order.email,
+          { customerName, orderNumber: order.order_number, reason: order.cancellation_reason ?? undefined, refundAmount, items },
+          job.order_id,
+        );
+        return;
+      }
+
+      const { siteUrl } = await import("../templates");
+      const trackingUrl = order.tracking_id
+        ? `${siteUrl()}/track?orderNumber=${encodeURIComponent(order.order_number)}&tracking=${encodeURIComponent(order.tracking_id)}`
+        : undefined;
+      const courierRef = [order.courier, order.courier_tracking_number].filter(Boolean).join(" ");
+      await this.email.sendOrderStatusUpdate(
+        order.email,
+        {
+          customerName,
+          orderNumber: order.order_number,
+          status: status as "shipped" | "delivered",
+          trackingNumber: status === "shipped" ? courierRef || undefined : undefined,
+          trackingUrl: status === "shipped" ? trackingUrl : undefined,
+          estimatedDelivery:
+            status === "shipped" && order.estimated_delivery
+              ? new Date(order.estimated_delivery).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : undefined,
+          items,
+        },
+        job.order_id,
+      );
+    });
+
+    this._queue.register("send_contact_emails", async (job: JobRecord) => {
+      const contactId = (job.payload as { contact_id?: string } | null)?.contact_id;
+      if (!contactId) throw new Error("Missing contact_id in email job");
+      const { data: msg, error } = await (this.supabase.from("contact_messages") as any)
+        .select("name, email, phone, message")
+        .eq("id", contactId)
+        .single();
+      if (error || !msg) throw new Error(`Contact message not found: ${error?.message || "empty"}`);
+
+      try {
+        await this.email.sendContactAutoReply(msg.email, { name: msg.name, message: msg.message });
+      } catch (err) {
+        logger.warn("Contact auto-reply failed", { contactId, error: String(err) });
+      }
+      await this.email.sendContactNotification({
+        name: msg.name,
+        email: msg.email,
+        phone: msg.phone ?? undefined,
+        message: msg.message,
+      });
+    });
+
+    this._queue.register("send_newsletter_welcome", async (job: JobRecord) => {
+      const id = (job.payload as { newsletter_id?: string } | null)?.newsletter_id;
+      if (!id) throw new Error("Missing newsletter_id in email job");
+      const { data: sub, error } = await (this.supabase.from("newsletters") as any)
+        .select("email, unsubscribe_token, is_active")
+        .eq("id", id)
+        .single();
+      if (error || !sub) throw new Error(`Subscriber not found: ${error?.message || "empty"}`);
+      if (!sub.is_active) return;
+      const { siteUrl } = await import("../templates");
+      await this.email.sendNewsletterWelcome(sub.email, {
+        unsubscribeUrl: `${siteUrl()}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`,
+      });
+    });
+
     this._queue.register("send_review_email", async (job: JobRecord) => {
       logger.info("Job: send_review_email", { orderId: job.order_id });
 

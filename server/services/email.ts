@@ -31,7 +31,7 @@ export class EmailService {
       this.resend = new Resend(env.resendApiKey);
       this.ready = true;
     } else {
-      logger.warn("Resend API key not configured — emails disabled");
+      logger.warn("Resend API key not configured, emails disabled");
     }
   }
 
@@ -83,7 +83,7 @@ export class EmailService {
 
   async send(options: EmailOptions): Promise<void> {
     if (!this.ready) {
-      logger.warn("Email not sent — Resend not configured", {
+      logger.warn("Email not sent, Resend not configured", {
         to: options.to,
         subject: options.subject,
       });
@@ -161,7 +161,7 @@ export class EmailService {
   ): Promise<void> {
     return this.sendWithLogging({
       to,
-      subject: `Order Confirmed — Welcome to ANORA`,
+      subject: `Your order is confirmed`,
       html,
       attachments: pdfAttachment ? [pdfAttachment] : undefined,
       emailType: "thank_you",
@@ -211,7 +211,7 @@ export class EmailService {
 
     return this.sendWithLogging({
       to,
-      subject: `Refund ${statusLabel} — Order #${data.orderNumber}`,
+      subject: `Refund ${statusLabel.toLowerCase()} for order #${data.orderNumber}`,
       html,
       emailType,
       orderId,
@@ -243,10 +243,97 @@ export class EmailService {
 
     return this.sendWithLogging({
       to,
-      subject: `Return Request ${statusLabel} — Order #${data.orderNumber}`,
+      subject: `Return request ${statusLabel.toLowerCase()} for order #${data.orderNumber}`,
       html,
       emailType,
       orderId,
+    });
+  }
+
+  async sendOrderStatusUpdate(
+    to: string,
+    data: {
+      customerName?: string;
+      orderNumber: string;
+      status: "processing" | "packed" | "shipped" | "delivered";
+      trackingNumber?: string;
+      trackingUrl?: string;
+      estimatedDelivery?: string;
+      items: any[];
+    },
+    orderId?: string,
+  ): Promise<void> {
+    const { buildShippingUpdateHtml } = await import("../templates");
+    const subjects: Record<string, string> = {
+      processing: `We are working on order #${data.orderNumber}`,
+      packed: `Order #${data.orderNumber} is packed`,
+      shipped: `Order #${data.orderNumber} has shipped`,
+      delivered: `Order #${data.orderNumber} was delivered`,
+    };
+    return this.sendWithLogging({
+      to,
+      subject: subjects[data.status] ?? `Update on order #${data.orderNumber}`,
+      html: buildShippingUpdateHtml(data),
+      emailType: `order_${data.status}`,
+      orderId,
+    });
+  }
+
+  async sendOrderCancelled(
+    to: string,
+    data: { customerName?: string; orderNumber: string; reason?: string; refundAmount?: number; items: any[] },
+    orderId?: string,
+  ): Promise<void> {
+    const { buildOrderCancelledHtml } = await import("../templates");
+    return this.sendWithLogging({
+      to,
+      subject: `Order #${data.orderNumber} was cancelled`,
+      html: buildOrderCancelledHtml(data as any),
+      emailType: "order_cancelled",
+      orderId,
+    });
+  }
+
+  async sendContactAutoReply(to: string, data: { name: string; message: string }): Promise<void> {
+    const { buildContactAutoReplyHtml } = await import("../templates");
+    return this.sendWithLogging({
+      to,
+      subject: "We got your message",
+      html: buildContactAutoReplyHtml(data as any),
+      emailType: "contact_auto_reply",
+    });
+  }
+
+  async sendContactNotification(data: { name: string; email: string; phone?: string; message: string }): Promise<void> {
+    const { buildContactNotificationHtml } = await import("../templates");
+    return this.sendWithLogging({
+      to: this.getAdminEmail(),
+      subject: `New message from ${data.name}`,
+      html: buildContactNotificationHtml(data as any),
+      emailType: "contact_notification",
+    });
+  }
+
+  async sendNewsletterWelcome(to: string, data: { unsubscribeUrl: string }): Promise<void> {
+    const { buildNewsletterWelcomeHtml } = await import("../templates");
+    return this.sendWithLogging({
+      to,
+      subject: "You are subscribed",
+      html: buildNewsletterWelcomeHtml(data),
+      emailType: "newsletter_welcome",
+    });
+  }
+
+  async sendPaymentFailed(
+    to: string,
+    data: { customerName?: string; orderNumber?: string; totalAmount: number },
+  ): Promise<void> {
+    const { buildPaymentFailedHtml } = await import("../templates");
+    return this.sendWithLogging({
+      to,
+      subject: "Your payment did not go through",
+      html: buildPaymentFailedHtml(data as any),
+      emailType: "payment_failed",
     });
   }
 
@@ -271,7 +358,7 @@ export class EmailService {
 
     return this.sendWithLogging({
       to,
-      subject: `How was your purchase? — ANORA`,
+      subject: `How was your order from ANORA?`,
       html,
       emailType: "review_request",
       orderId,
