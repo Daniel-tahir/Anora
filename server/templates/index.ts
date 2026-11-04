@@ -12,6 +12,16 @@ export const EMERALD = "#10B981";
 export const RED = "#EF4444";
 
 // ─── Customer Display Name Helper & Input Schema ─────────────────────
+// Dynamic site values (no hardcoded domain)
+export function siteUrl(): string {
+  return (env.publicAppUrl || "").replace(/\/+$/, "");
+}
+
+function instagramLink(style: string): string {
+  const url = process.env.INSTAGRAM_URL;
+  return url ? `<a href="${escapeHtml(url)}" style="${style}">Instagram</a> &nbsp;·&nbsp;` : "";
+}
+
 export interface CustomerNameInput {
   firstName?: string | null;
   lastName?: string | null;
@@ -22,7 +32,7 @@ export interface CustomerNameInput {
 }
 
 export function getCustomerDisplayName(data?: CustomerNameInput | null): string {
-  if (!data) return "Valued Customer";
+  if (!data) return "Customer";
 
   // 1. customer.firstName + customer.lastName
   const profileName = [data.firstName, data.lastName].map(s => s?.trim()).filter(Boolean).join(" ");
@@ -49,7 +59,7 @@ export function getCustomerDisplayName(data?: CustomerNameInput | null): string 
   // 4. account display name
   if (data.displayName?.trim() && !data.displayName.includes("@")) return data.displayName.trim();
 
-  return "Valued Customer";
+  return "Customer";
 }
 
 // ─── Shared Types ────────────────────────────────────────────────────
@@ -180,7 +190,7 @@ export interface EmailVerificationData {
 export interface PaymentFailedData {
   customer?: CustomerNameInput | null;
   customerName?: string; // fallback
-  orderNumber: string;
+  orderNumber?: string;
   totalAmount: number;
   retryUrl?: string;
 }
@@ -244,9 +254,9 @@ export function wrap(content: string): string {
 export function header(): string {
   return `<tr>
     <td style="padding:64px 48px 48px;text-align:center;background-color:${WHITE};">
-      <a href="https://anora-elegance.com" style="text-decoration:none;display:inline-block;">
+      <a href="${siteUrl()}" style="text-decoration:none;display:inline-block;">
         <h1 class="logo" style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:32px;letter-spacing:10px;color:${DARK};margin:0;font-weight:300;text-transform:uppercase;line-height:1;">ANORA</h1>
-        <p style="font-size:10px;letter-spacing:5px;color:${MUTED};margin:8px 0 0;text-transform:uppercase;font-weight:400;line-height:1;">ATELIER</p>
+        <p style="font-size:10px;letter-spacing:5px;color:${MUTED};margin:8px 0 0;text-transform:uppercase;font-weight:400;line-height:1;">NEW YORK</p>
       </a>
     </td>
   </tr>`;
@@ -256,7 +266,7 @@ export function footer(): string {
   return `<tr>
     <td style="padding:0 48px 64px;background-color:${WHITE};text-align:center;border-top:1px solid #ECECED;">
       <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:${MUTED};margin:32px 0 8px;letter-spacing:0.5px;">
-        © ${new Date().getFullYear()} ANORA. Made with elegance.
+        © ${new Date().getFullYear()} ANORA. All rights reserved.
       </p>
     </td>
   </tr>`;
@@ -368,11 +378,11 @@ export function buildThankYouHtml(data: ThankYouData): string {
       <td style="padding: 0 48px; background-color: ${WHITE}; text-align: center;">
         <h2 style="font-family: 'Didot', 'Playfair Display', 'Times New Roman', serif; font-size: 28px; color: ${DARK}; margin: 0 0 16px; font-weight: 300; letter-spacing: 1px; text-transform: uppercase; line-height: 1.2;">Thank You For Your Order</h2>
         <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: ${TEXT}; line-height: 1.6; margin: 0 0 8px; max-width: 480px; display: inline-block;">
-          Your order has been successfully placed and payment has been confirmed.
+          We have received your order and your payment went through.
         </p>
         <br/>
         <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: ${TEXT}; line-height: 1.6; margin: 0 0 32px; max-width: 480px; display: inline-block;">
-          We are now preparing your order and will notify you again as soon as it ships.
+          We are getting your order ready. We will send you another email when it ships.
         </p>
         
         <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: ${MUTED}; margin: 0 0 8px; font-weight: 600;">Order Number</p>
@@ -496,12 +506,12 @@ export function buildThankYouHtml(data: ThankYouData): string {
       <td style="padding: 48px; background-color: ${WHITE}; text-align: center; border-top: 1px solid #ECECED;">
         <h4 style="font-family: 'Didot', 'Playfair Display', 'Times New Roman', serif; font-size: 18px; color: ${DARK}; margin: 0 0 12px; font-weight: 300; letter-spacing: 1px; text-transform: uppercase;">Need Help?</h4>
         <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: ${TEXT}; line-height: 1.6; margin: 0 0 24px;">
-          If you have any questions about your order, our support team is always happy to help.
+          If you have a question about your order, reply to this email or write to us at the address below.
         </p>
         <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: ${MUTED}; margin: 0;">
           <a href="mailto:${escapeHtml(env.fromEmail)}" style="color: ${DARK}; text-decoration: none; font-weight: 500;">Email Us</a> &nbsp;·&nbsp;
-          <a href="https://instagram.com/anora" style="color: ${DARK}; text-decoration: none; font-weight: 500;">Instagram</a> &nbsp;·&nbsp;
-          <a href="https://anora-elegance.com" style="color: ${DARK}; text-decoration: none; font-weight: 500;">Our Website</a>
+          ${instagramLink("color: ${DARK}; text-decoration: none; font-weight: 500;")}
+          <a href="${siteUrl()}" style="color: ${DARK}; text-decoration: none; font-weight: 500;">Our Website</a>
         </p>
       </td>
     </tr>
@@ -523,7 +533,7 @@ export function buildInvoiceEmailHtml(data: InvoiceEmailData): string {
             <td style="padding:16px 0 32px;text-align:center;">
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Invoice Details</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
-              <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.6;text-align:left;">Thank you for your business. Please find your detailed invoice outline below. A PDF copy is attached to this email for your records.</p>
+              <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.6;text-align:left;">Here is the invoice for your order. A PDF copy is attached to this email.</p>
             </td>
           </tr>
         </table>
@@ -610,7 +620,7 @@ export function buildAdminNotificationHtml(data: AdminNotificationData): string 
           <tr>
             <td style="padding:16px 0 32px;text-align:center;">
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:22px;color:${DARK};margin:0 0 8px;font-weight:400;letter-spacing:1px;">New Order Received</h2>
-              <p style="font-size:14px;color:${MUTED};margin:0;line-height:1.6;">Order and payment details outlined below.</p>
+              <p style="font-size:14px;color:${MUTED};margin:0;line-height:1.6;">The order and payment details are below.</p>
             </td>
           </tr>
         </table>
@@ -685,10 +695,10 @@ export function buildShippingUpdateHtml(data: ShippingUpdateData): string {
   };
 
   const statusDescriptions: Record<string, string> = {
-    processing: "Your order is being reviewed and processed by our atelier.",
-    packed: "Your pieces have been securely packaged and prepared for dispatch.",
-    shipped: "Your parcel is on its way. Use the tracking link below for logistics updates.",
-    delivered: "Your package has been safely delivered. We hope you appreciate your new pieces.",
+    processing: "We have started working on your order.",
+    packed: "Your order is packed and will be handed to the courier soon.",
+    shipped: "Your order has been shipped. You can follow it with the tracking details below.",
+    delivered: "Your order has been delivered. If something is wrong with it, reply to this email and we will sort it out.",
   };
 
   const body = `
@@ -773,9 +783,9 @@ export function buildReturnUpdateHtml(data: ReturnUpdateData): string {
   };
 
   const statusText: Record<string, string> = {
-    requested: "We have received your request for a return. Our team will review the details and provide instructions shortly.",
-    approved: "Your return request has been approved. Please follow the instructions provided to ship the items back.",
-    rejected: "We have reviewed your return request and regret to inform you that we cannot approve a return for these items.",
+    requested: "We received your return request. We will review it and email you the next steps.",
+    approved: "Your return request is approved. Reply to this email if you need help sending the items back.",
+    rejected: "We looked at your return request and could not approve it for these items. Reply to this email if you would like to talk about it.",
   };
 
   const body = `
@@ -832,7 +842,7 @@ export function buildRefundUpdateHtml(data: RefundUpdateData): string {
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">${refundLabels[data.refundStatus] || "Refund Notice"}</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.6;text-align:left;">
-                ${data.refundStatus === "processed" ? `A refund of $${data.amount.toFixed(2)} has been initiated for your order. The funds should reflect in your account within 5-10 business days depending on your financial institution.` : `We have finalized your refund of $${data.amount.toFixed(2)}.`}
+                ${data.refundStatus === "processed" ? `A refund of $${data.amount.toFixed(2)} has been started for your order. It usually shows up in your account within 5 to 10 business days, depending on your bank.` : `Your refund of $${data.amount.toFixed(2)} is complete.`}
               </p>
             </td>
           </tr>
@@ -875,9 +885,9 @@ export function buildContactAutoReplyHtml(data: ContactAutoReplyData): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="padding:16px 0 32px;">
-              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;text-align:center;">Thank You for Reaching Out</h2>
+              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;text-align:center;">We Got Your Message</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;">Dear ${escapeHtml(data.name)},</p>
-              <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.6;">We have successfully received your inquiry. A representative from our atelier will respond to you within 24 business hours.</p>
+              <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.6;">We received your message. We usually reply within 1 to 2 business days.</p>
             </td>
           </tr>
         </table>
@@ -910,7 +920,7 @@ export function buildContactNotificationHtml(data: ContactNotificationData): str
           <tr>
             <td style="padding:16px 0 32px;text-align:center;">
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:22px;color:${DARK};margin:0 0 8px;font-weight:400;letter-spacing:1px;">New Customer Inquiry</h2>
-              <p style="font-size:14px;color:${MUTED};margin:0;line-height:1.6;">A contact message has been submitted on the site.</p>
+              <p style="font-size:14px;color:${MUTED};margin:0;line-height:1.6;">Someone sent a message through the contact form.</p>
             </td>
           </tr>
         </table>
@@ -951,7 +961,7 @@ export function buildContactNotificationHtml(data: ContactNotificationData): str
 // ─── Welcome Email ───────────────────────────────────────────────────
 export function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
   const resolvedName = getCustomerDisplayName(data.customer || { displayName: data.customerName });
-  const shopUrl = data.shopUrl || "https://anora-elegance.com/shop";
+  const shopUrl = data.shopUrl || `${siteUrl()}/shop`;
 
   const body = `
     ${header()}
@@ -963,12 +973,49 @@ export function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Welcome to ANORA</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;text-align:left;">
-                Thank you for creating an account with ANORA. We are dedicated to providing quiet, considered luxury pieces crafted in our atelier for every moment of a lifetime.
+                Thank you for creating an account with ANORA. You can now track your orders, save items to your wishlist and check out faster.
               </p>
-              <a href="${escapeHtml(shopUrl)}" style="display:inline-block;background-color:${DARK};color:${WHITE};padding:14px 36px;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;font-weight:500;border-radius:0;">Explore the Collection</a>
+              <a href="${escapeHtml(shopUrl)}" style="display:inline-block;background-color:${DARK};color:${WHITE};padding:14px 36px;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;font-weight:500;border-radius:0;">Shop Now</a>
             </td>
           </tr>
         </table>
+      </td>
+    </tr>
+    ${footer()}
+  `;
+  return wrap(body);
+}
+
+export interface NewsletterWelcomeData {
+  shopUrl?: string;
+  unsubscribeUrl: string;
+}
+
+// Newsletter Welcome Email
+export function buildNewsletterWelcomeHtml(data: NewsletterWelcomeData): string {
+  const shopUrl = data.shopUrl || `${siteUrl()}/shop`;
+
+  const body = `
+    ${header()}
+    <tr>
+      <td class="content" style="padding:0 48px;background-color:${WHITE};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="padding:16px 0 32px;text-align:center;">
+              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">You Are Subscribed</h2>
+              <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Hello,</p>
+              <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;text-align:left;">
+                Thanks for subscribing. We will email you when new items arrive and when there is a sale. You can unsubscribe at any time using the link at the bottom of this email.
+              </p>
+              <a href="${escapeHtml(shopUrl)}" style="display:inline-block;background-color:${DARK};color:${WHITE};padding:14px 36px;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;font-weight:500;border-radius:0;">Shop Now</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 48px 24px;background-color:${WHITE};text-align:center;">
+        <a href="${escapeHtml(data.unsubscribeUrl)}" style="font-size:11px;color:${MUTED};text-decoration:underline;">Unsubscribe</a>
       </td>
     </tr>
     ${footer()}
@@ -990,7 +1037,7 @@ export function buildPasswordResetHtml(data: PasswordResetData): string {
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Reset Your Password</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;text-align:left;">
-                We received a request to reset your password. Click the link below to configure a new password. If you did not request this change, please ignore this email.
+                We got a request to reset your password. Use the link below to choose a new one. If you did not ask for this, you can ignore this email.
               </p>
               <a href="${escapeHtml(data.resetUrl)}" style="display:inline-block;background-color:${DARK};color:${WHITE};padding:14px 36px;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;font-weight:500;border-radius:0;">Reset Password</a>
             </td>
@@ -1017,7 +1064,7 @@ export function buildEmailVerificationHtml(data: EmailVerificationData): string 
               <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Confirm Your Email</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;text-align:left;">
-                Thank you for signing up. Please verify your email address by clicking the confirmation link below.
+                Thanks for signing up. Please confirm your email address using the link below.
               </p>
               <a href="${escapeHtml(data.verificationUrl)}" style="display:inline-block;background-color:${DARK};color:${WHITE};padding:14px 36px;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;font-weight:500;border-radius:0;">Verify Email</a>
             </td>
@@ -1033,7 +1080,7 @@ export function buildEmailVerificationHtml(data: EmailVerificationData): string 
 // ─── Payment Failed Email ────────────────────────────────────────────
 export function buildPaymentFailedHtml(data: PaymentFailedData): string {
   const resolvedName = getCustomerDisplayName(data.customer || { displayName: data.customerName });
-  const retryUrl = data.retryUrl || "https://anora-elegance.com/checkout";
+  const retryUrl = data.retryUrl || `${siteUrl()}/checkout`;
 
   const body = `
     ${header()}
@@ -1042,10 +1089,10 @@ export function buildPaymentFailedHtml(data: PaymentFailedData): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="padding:16px 0 32px;text-align:center;">
-              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${RED};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Payment Transaction Failed</h2>
+              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${RED};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Your Payment Did Not Go Through</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;text-align:left;">
-                We were unable to process the payment for order ${escapeHtml(data.orderNumber)} (amounting to $${data.totalAmount.toFixed(2)}). Please click the button below to update your billing details and complete checkout.
+                We could not take your payment of $${data.totalAmount.toFixed(2)}${data.orderNumber ? ` for order ${escapeHtml(data.orderNumber)}` : ""}. No order has been placed. You can try again with the button below, or use a different card.
               </p>
               <a href="${escapeHtml(retryUrl)}" style="display:inline-block;background-color:${DARK};color:${WHITE};padding:14px 36px;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;font-weight:500;border-radius:0;">Retry Payment</a>
             </td>
@@ -1070,11 +1117,11 @@ export function buildOrderCancelledHtml(data: OrderCancelledData): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="padding:16px 0 32px;text-align:center;">
-              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Your Order has been Cancelled</h2>
+              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;">Your Order Was Cancelled</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;text-align:left;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0;line-height:1.6;text-align:left;">
-                We have cancelled order ${escapeHtml(data.orderNumber)} per request or automatic verification.
-                ${data.refundAmount && data.refundAmount > 0 ? ` A refund of $${data.refundAmount.toFixed(2)} has been processed to your original payment method.` : ""}
+                Order ${escapeHtml(data.orderNumber)} has been cancelled.
+                ${data.refundAmount && data.refundAmount > 0 ? ` A refund of $${data.refundAmount.toFixed(2)} has been sent to your original payment method. It can take 5 to 10 business days to show up.` : ""}
               </p>
               ${data.reason ? `<p style="font-size:13px;color:${MUTED};margin:12px 0 0;line-height:1.6;text-align:left;font-style:italic;">Reason: "${escapeHtml(data.reason)}"</p>` : ""}
             </td>
@@ -1137,7 +1184,7 @@ export interface ReviewRequestData {
 }
 
 export function buildReviewRequestHtml(data: ReviewRequestData): string {
-  const resolvedName = data.customerName || "Valued Customer";
+  const resolvedName = data.customerName || "Customer";
   
   const productRows = data.products.map(p => `
     <tr style="border-bottom:1px solid ${BORDER};">
@@ -1158,10 +1205,10 @@ export function buildReviewRequestHtml(data: ReviewRequestData): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="padding:40px 0 24px;text-align:left;">
-              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;text-align:center;">Your ANORA Experience</h2>
+              <h2 style="font-family:'Didot','Playfair Display','Times New Roman',serif;font-size:24px;color:${DARK};margin:0 0 16px;font-weight:400;letter-spacing:1px;text-align:center;">Tell Us What You Think</h2>
               <p style="font-size:14px;color:${TEXT};margin:0 0 16px;line-height:1.6;">Dear ${escapeHtml(resolvedName)},</p>
               <p style="font-size:14px;color:${TEXT};margin:0 0 24px;line-height:1.6;">
-                We hope your recent ANORA pieces are serving you beautifully. We invite you to share your thoughts on the fit, fabric, and craftsmanship of your selection.
+                You ordered from us recently. We would like to know how the items fit and feel. Your review also helps other customers choose.
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                 ${productRows}

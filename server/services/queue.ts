@@ -11,7 +11,10 @@ export type JobType =
   | "send_admin_email"
   | "analytics_events"
   | "application_logs"
-  | "send_review_email";
+  | "send_review_email"
+  | "send_order_status_email"
+  | "send_contact_emails"
+  | "send_newsletter_welcome";
 
 export type JobRecord = {
   id: string;
@@ -40,6 +43,9 @@ const JOB_TYPES: JobType[] = [
   "analytics_events",
   "application_logs",
   "send_review_email",
+  "send_order_status_email",
+  "send_contact_emails",
+  "send_newsletter_welcome",
 ];
 
 const DEFAULT_ORDER_JOBS: JobType[] = [
@@ -61,6 +67,9 @@ const JOB_SEQUENCE: Record<JobType, number> = {
   analytics_events: 6,
   application_logs: 7,
   send_review_email: 8,
+  send_order_status_email: 9,
+  send_contact_emails: 10,
+  send_newsletter_welcome: 11,
 };
 
 export class QueueService {

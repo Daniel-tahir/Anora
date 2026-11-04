@@ -4,6 +4,7 @@ import { EmailService } from "./email";
 import { env } from "../config/env";
 import { ApplicationError, NotFoundError, ValidationError } from "../lib/errors";
 import { logger } from "../lib/logger";
+import { escapeHtml } from "../lib/security";
 
 export class RefundService {
   private get db(): any {
@@ -112,10 +113,10 @@ export class RefundService {
       // Customer confirmation
       await this.email.sendWithLogging({
         to: order.email,
-        subject: `Refund Request Received — Order #${order.order_number}`,
+        subject: `Refund request received for order #${order.order_number}`,
         html: buildNotificationEmailHtml({
           title: "Refund Request Received",
-          message: `We have received your refund request for Order #${order.order_number}. Our concierge team will review the details and updates will be sent to you shortly.`
+          message: `We received your refund request for order #${order.order_number}. We will review it and email you when there is an update.`
         }),
         emailType: "refund_request_received",
         orderId,
@@ -126,7 +127,7 @@ export class RefundService {
         `New Refund Request: Order #${order.order_number}`,
         buildNotificationEmailHtml({
           title: "New Refund Request",
-          message: `Customer has requested a refund of $${refundAmount.toFixed(2)} for Order #${order.order_number}.<br/><br/>Reason: ${reason}<br/>Description: ${description || "None"}`
+          message: `A customer asked for a refund of $${refundAmount.toFixed(2)} on order #${order.order_number}.<br/><br/>Reason: ${escapeHtml(reason)}<br/>Details: ${escapeHtml(description || "None")}`
         }),
         orderId,
       );
@@ -258,10 +259,10 @@ export class RefundService {
     const { buildNotificationEmailHtml } = await import("../templates");
     await this.email.sendWithLogging({
       to: order.email,
-      subject: `Refund Request Updates — Order #${order.order_number}`,
+      subject: `Your refund request for order #${order.order_number}`,
       html: buildNotificationEmailHtml({
         title: "Refund Request Rejected",
-        message: `We have reviewed your refund request for Order #${order.order_number}. Unfortunately, it has been rejected.<br/><br/>Notes: "${rejectionReason}"`
+        message: `We reviewed your refund request for order #${order.order_number} and could not approve it.<br/><br/>Reason: "${escapeHtml(rejectionReason)}"`
       }),
       emailType: "refund_rejected",
       orderId: order.id,
@@ -309,10 +310,10 @@ export class RefundService {
     const { buildNotificationEmailHtml } = await import("../templates");
     await this.email.sendWithLogging({
       to: order.email,
-      subject: `Concierge Clarification Required — Order #${order.order_number}`,
+      subject: `We need more information about your refund, order #${order.order_number}`,
       html: buildNotificationEmailHtml({
-        title: "Clarification Required",
-        message: `We require additional details regarding your refund request for Order #${order.order_number}.<br/><br/>Message from concierge: <strong style="display: block; margin-top: 10px; font-style: italic;">"${message}"</strong><br/>Please reply back to our support email with the requested information.`
+        title: "We Need More Information",
+        message: `We need a little more information to continue with your refund request for order #${order.order_number}.<br/><br/>Our question: <strong style="display: block; margin-top: 10px; font-style: italic;">"${escapeHtml(message)}"</strong><br/>Please reply to this email with your answer.`
       }),
       emailType: "refund_needs_info",
       orderId: order.id,
